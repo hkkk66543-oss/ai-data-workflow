@@ -1,0 +1,19 @@
+project:
+  name: ai-data-analysis-workflow
+  sql_dialect: mysql8
+  default_encoding: utf-8
+
+paths:
+  raw_data: data/raw
+  processed_data: data/processed
+  sample_data: data/sample
+  output_tables: outputs/tables
+  output_charts: outputs/charts
+  output_reports: outputs/reports
+  docs: docs
+
+analysis:
+  sample_rows: 10
+  duplicate_check: true
+  missing_value_check: true
+  infer_relationships: true

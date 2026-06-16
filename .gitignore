@@ -1,0 +1,29 @@
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments and local config
+.venv/
+venv/
+env/
+.env
+config.yaml
+*.local
+
+# Raw/user data and generated artifacts
+data/raw/*
+data/processed/*
+data/sample/*
+outputs/diagnostics/charts/*
+outputs/bi_mockups/*
+outputs/bi_screenshots/*
+outputs/tables/*
+
+# Power BI local files can be large and user-specific
+*.pbix
+*.pbit
+
+# Keep optional directory placeholders
+!.gitkeep

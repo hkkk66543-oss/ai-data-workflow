@@ -1,0 +1,22 @@
+# 06 Execute
+
+目标：根据确认后的项目主题和执行计划，生成 SQL、Python 数据质量与辅助校验、Power BI 方案、报告。
+
+输出要求：
+
+- ODS 层 SQL：`sql/01_ods/`
+- DWD 层 SQL：`sql/02_dwd/`
+- ADS 层 SQL：`sql/03_ads/`
+- 数据校验 SQL：`sql/04_checks/`
+- 数据质量检查脚本：`scripts/data_quality_check.py`
+- EDA 摘要脚本：`scripts/eda_summary.py`
+- 诊断图脚本：`scripts/chart_export.py`，只输出到 `outputs/diagnostics/charts/`，不用于最终展示
+- Power BI 页面设计：`powerbi_notes/dashboard_plan.md`
+- DAX 指标文档：`powerbi_notes/dax_measures.md`
+- BI 样例图提示词：`powerbi_notes/image_prompts.md`
+- 分析报告：`outputs/reports/数据分析报告.md`
+- GitHub README：`README.md`
+- 简历描述：`docs/简历项目描述.md`
+- 面试讲解稿：`docs/面试讲解稿.md`
+
+禁止基于不存在的字段生成 SQL 或结论。
