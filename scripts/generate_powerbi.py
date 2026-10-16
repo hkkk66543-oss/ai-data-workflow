@@ -16,6 +16,11 @@ from pathlib import Path
 
 import yaml
 
+try:
+    from .powerbi_design import prepare as prepare_design, theme as build_theme
+except ImportError:
+    from powerbi_design import prepare as prepare_design, theme as build_theme
+
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "templates/powerbi_blank"
 SCHEMA_BASE = "https://developer.microsoft.com/json-schemas/fabric/"
@@ -247,14 +252,25 @@ def literal(value):
 
 def visual_definition(item, tables, measures, index, page):
     kind = item["type"]
+    if kind == "text":
+        x,y,width,height = item["position"]
+        if min(x,y)<0 or min(width,height)<=0 or x+width>page['width'] or y+height>page['height']:
+            raise BIError("文本超出画布。")
+        size = item.get("font_size",12)
+        if not isinstance(size,(int,float)) or not 8 <= size <= 48 or height < math.ceil(size*25/16):
+            raise BIError("文本字号或高度无效。")
+        return {"$schema":SCHEMA_BASE+"item/report/definition/visualContainer/2.7.0/schema.json",
+                "name":f"visual{index:014x}","position":{"x":x,"y":y,"width":width,"height":height,"z":index,"tabOrder":index},
+                "visual":{"visualType":"textbox","objects":{"general":[{"properties":{"paragraphs":[{"textRuns":[{"value":text(item['text']),"textStyle":{"fontFamily":"Segoe UI","fontSize":str(size)+"pt","fontWeight":"bold" if item.get('bold') else "normal","color":item.get('color','#152841')}}]}]}}]},
+                          "visualContainerObjects":{"title":[{"properties":{"show":{"expr":{"Literal":{"Value":"false"}}}}}],"background":[{"properties":{"show":{"expr":{"Literal":{"Value":"false"}}}}}],"border":[{"properties":{"show":{"expr":{"Literal":{"Value":"false"}}}}}]}}}
     roles = {}
-    if kind in {"card", "column", "line"}:
+    if kind in {"card", "column", "bar", "line"}:
         name = item["measure"]
         if name not in measures:
             raise BIError("图表引用了不存在的度量值。")
         metric = measures[name]
         roles["Values" if kind == "card" else "Y"] = {"projections": [projection(metric["table"], name, True)]}
-    if kind in {"column", "line", "table", "slicer"}:
+    if kind in {"column", "bar", "line", "table", "slicer"}:
         table = item["table"]
         if table not in tables:
             raise BIError("图表引用了不存在的表。")
@@ -263,24 +279,28 @@ def visual_definition(item, tables, measures, index, page):
             raise BIError("图表引用了不存在的列。")
         if kind == 'line' and next(c['type'] for c in tables[table]['columns'] if c['name'] == fields[0]) not in {'date','datetime','int64','double','decimal'}:
             raise BIError("趋势图横轴需明确日期或数值类型。")
-        roles["Category" if kind in {"column", "line"} else "Values"] = {"projections": [projection(table, field) for field in fields]}
-    if kind not in {"card", "column", "line", "table", "slicer"}:
+        roles["Category" if kind in {"column", "bar", "line"} else "Values"] = {"projections": [projection(table, field) for field in fields]}
+    if kind not in {"card", "column", "bar", "line", "table", "slicer"}:
         raise BIError("首版只支持指标卡、柱状图、折线图、表格和筛选器。")
     x, y, width, height = item["position"]
     if any(not isinstance(v, (int, float)) for v in (x, y, width, height)) or min(x, y) < 0 or min(width, height) < 50 or x + width > page["width"] or y + height > page["height"]:
         raise BIError("图表位置超出页面或尺寸无效。")
     query = {"queryState": roles}
-    if kind in {'column','line'}:
+    if kind in {'column','bar','line'}:
         query['sortDefinition'] = {'sort': [{'field': roles['Category']['projections'][0]['field'], 'direction': 'Ascending'}], 'isDefaultSort': True}
     return {"$schema": SCHEMA_BASE + "item/report/definition/visualContainer/2.7.0/schema.json",
             "name": f"visual{index:014x}", "position": {"x": x, "y": y, "width": width, "height": height, "z": index, "tabOrder": index},
-            "visual": {"visualType": {"card": "card", "column": "clusteredColumnChart", "line": "lineChart", "table": "tableEx", "slicer": "slicer"}[kind],
+            "visual": {"visualType": {"card": "card", "column": "clusteredColumnChart", "bar": "clusteredBarChart", "line": "lineChart", "table": "tableEx", "slicer": "slicer"}[kind],
                        "query": query, "drillFilterOtherVisuals": True,
                        "visualContainerObjects": {"title": [{"properties": {"show": {"expr": {"Literal": {"Value": "true"}}}, "text": literal(item.get("title", kind))}}]}}}
 
 
-def generate(run_dir, spec_path, output):
+def generate(run_dir, spec_path, output, data_root=None):
     report, spec, tables, measures = load_inputs(run_dir, spec_path)
+    try:
+        spec, palette = prepare_design(spec, tables)
+    except ValueError as exc:
+        raise BIError(str(exc)) from exc
     if output.exists():
         raise BIError("输出目录已存在；为避免覆盖，请选择新目录。")
     if output.resolve().is_relative_to(run_dir.resolve()):
@@ -297,12 +317,23 @@ def generate(run_dir, spec_path, output):
         pbir = json.loads((output / report_name / "definition.pbir").read_text())
         pbir["datasetReference"]["byPath"]["path"] = "../" + model_name
         dump(output / report_name / "definition.pbir", pbir)
+        if palette:
+            theme_name = "Portfolio_" + spec['design'].get('palette','ocean')
+            report_json_path = output / report_name / "definition/report.json"
+            report_json = json.loads(report_json_path.read_text(encoding='utf-8-sig'))
+            report_json['themeCollection']['customTheme'] = {
+                'name':theme_name,'type':'RegisteredResources',
+                'reportVersionAtImport':report_json['themeCollection']['baseTheme']['reportVersionAtImport']}
+            report_json['resourcePackages'].append({'name':'RegisteredResources','type':'RegisteredResources',
+                'items':[{'name':theme_name,'path':theme_name+'.json','type':'CustomTheme'}]})
+            dump(output / report_name / 'StaticResources/RegisteredResources' / (theme_name+'.json'),build_theme(palette,theme_name))
+            dump(report_json_path,report_json)
         model_path = output / model_name / "definition"
         (model_path / "tables").mkdir()
         model_text = (model_path / "model.tmdl").read_text(encoding="utf-8-sig")
         model_text += "\n" + "\n".join("ref table " + tq(t) for t in tables) + "\nref expression DataRoot\n"
         (model_path / "model.tmdl").write_text(model_text, encoding="utf-8")
-        (model_path / "expressions.tmdl").write_text('expression DataRoot = "__SET_DATA_ROOT__" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]\n\tlineageTag: ' + str(uuid.uuid4()) + '\n', encoding="utf-8")
+        (model_path / "expressions.tmdl").write_text('expression DataRoot = ' + mq(data_root or '__SET_DATA_ROOT__') + ' meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]\n\tlineageTag: ' + str(uuid.uuid4()) + '\n', encoding="utf-8")
         for index, table in enumerate(tables.values(), 1):
             (model_path / "tables" / f"table_{index:03}.tmdl").write_text(table_tmdl(table, measures), encoding="utf-8")
             (output / "data").mkdir(exist_ok=True)
@@ -324,6 +355,8 @@ def generate(run_dir, spec_path, output):
             page_ids.append(page_id)
             page = {"$schema": SCHEMA_BASE + "item/report/definition/page/2.1.0/schema.json", "name": page_id,
                     "displayName": text(page_spec["title"]), "displayOption": "FitToPage", "width": page_spec.get("width", 1920), "height": page_spec.get("height", 1080)}
+            if palette:
+                page['objects'] = {'background':[{'properties':{'color':{'solid':{'color':literal(palette['canvas'])}},'transparency':{'expr':{'Literal':{'Value':'0D'}}}}}]}
             dump(pages / page_id / "page.json", page)
             for visual_index, visual in enumerate(page_spec.get("visuals", []), 1):
                 v = visual_definition(visual, tables, measures, visual_index, page)
@@ -336,16 +369,29 @@ def generate(run_dir, spec_path, output):
                     "modelDirectory": model_name, "sql_run_id": report["run_id"],
                     "tables": len(tables), "fields": sum(len(t["columns"]) for t in tables.values()), "measures": len(measures),
                     "pages": len(page_ids), "visuals": total_visuals, "business_purpose": spec.get("business_purpose", "待确认"),
+                    "design": {"enabled": bool(palette), "palette": spec.get("design",{}).get("palette"), "layouts": [p.get("resolved_layout","manual") for p in spec["pages"]]},
                     "source_csv_sha256": {t["export"]: t["csv_sha256"] for t in tables.values()}}
         dump(output / "project-manifest.json", manifest)
         dump(output / "report-plan.json", spec)
-        write_launcher(output)
-        (output / "README.txt").write_text("Power BI 可编辑工程草稿（尚未在 Desktop 验证）\n\n" +
+        if palette:
+            dump(output / "design-profile.json", spec.get("design_profile",{}))
+        dump(output / "model-fields.json", {name:t["columns"] for name,t in tables.items()})
+        if spec.get("launcher", True):
+            write_launcher(output)
+        (output / "README.txt").write_text("Power BI 可编辑工程草稿（本次生成尚未在 Desktop 验证）\n\n" +
             spec.get('business_purpose', '') + "\n\n1. 解压完整文件夹。\n2. Windows 双击 OpenReport.cmd，自动配置 CSV 路径并打开 PBIP。\n" +
             "3. 在 Power BI Desktop 中点击刷新，检查字段、DAX、筛选和图表。\n" +
             "4. 文件夹移动后重新运行 OpenReport.cmd。也可手动将 DataRoot 参数设置为 data 文件夹的绝对路径。\n" +
             "不包含 PBIX 二进制缓存。CSV 是 SQL 运行结果的副本，不需要重新连接已经删除的临时 MySQL。\n" +
             "合成演示不能作为真实业务成果。Desktop 打开/刷新是最终验证，静态检查不能替代。\n", encoding="utf-8")
+        if not spec.get("launcher",True):
+            (output / "README.txt").write_text(
+                "Power BI 设计升级示例（尚未完成 Desktop 验证）\n\n" +
+                "直接双击 " + project + ".pbip，不需要运行脚本。\n" +
+                "DataRoot 当前设置为：" + str(data_root or "__SET_DATA_ROOT__") + "\n" +
+                "若解压位置不同：转换数据 → 管理参数 → 将 DataRoot 改为本工程 data 文件夹的完整路径 → 关闭并应用。\n" +
+                spec.get("verification_note", "按已确认的指标口径核对数值、筛选与联动。") + "\n" +
+                spec.get("business_purpose", "业务目的待确认。") + "\n主题和新布局仍须在 Desktop 检查。\n",encoding="utf-8-sig")
         return manifest
     except BaseException:
         # Only remove this newly created output, never the input run or template.
@@ -376,9 +422,10 @@ def main():
     parser.add_argument("--run-dir", required=True, type=Path)
     parser.add_argument("--plan", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--data-root", help="可选：预设目标电脑上的 CSV 文件夹绝对路径。")
     args = parser.parse_args()
     try:
-        result = generate(args.run_dir.resolve(), args.plan.resolve(), args.output.resolve())
+        result = generate(args.run_dir.resolve(), args.plan.resolve(), args.output.resolve(), args.data_root)
     except Exception as exc:
         print(str(exc) if isinstance(exc, BIError) else type(exc).__name__, file=sys.stderr)
         sys.exit(1)

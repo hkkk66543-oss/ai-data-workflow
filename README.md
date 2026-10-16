@@ -107,3 +107,7 @@ $env:OPENAI_API_KEY="你的key"
 ```
 
 不要把 API Key 写进代码。如果无法调用 OpenAI Images API，使用 `powerbi_notes/image_prompts.md` 中的提示词，手动复制到 ChatGPT 图片生成或其他支持 OpenAI Images API 的环境中生成。
+
+### Power BI 设计层
+
+已增加三套主题、原生标题与分区、概览/对比/明细布局、实际类别分布适配，以及无启动脚本交付。使用 `examples/sql_pipeline_demo/powerbi_design_plan.yaml`，详见 [设计升级说明](docs/PowerBI设计升级说明.md)。它根据已审核计划适配页面，不会凭空推断行业指标；新主题和布局仍需 Desktop 显示验证。
