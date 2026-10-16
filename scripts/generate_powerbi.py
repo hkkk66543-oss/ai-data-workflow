@@ -264,6 +264,7 @@ def visual_definition(item, tables, measures, index, page):
                 "visual":{"visualType":"textbox","objects":{"general":[{"properties":{"paragraphs":[{"textRuns":[{"value":text(item['text']),"textStyle":{"fontFamily":"Segoe UI","fontSize":str(size)+"pt","fontWeight":"bold" if item.get('bold') else "normal","color":item.get('color','#152841')}}]}]}}]},
                           "visualContainerObjects":{"title":[{"properties":{"show":{"expr":{"Literal":{"Value":"false"}}}}}],"background":[{"properties":{"show":{"expr":{"Literal":{"Value":"false"}}}}}],"border":[{"properties":{"show":{"expr":{"Literal":{"Value":"false"}}}}}]}}}
     roles = {}
+    column_kind = None
     if kind in {"card", "column", "bar", "line"}:
         name = item["measure"]
         if name not in measures:
@@ -277,7 +278,8 @@ def visual_definition(item, tables, measures, index, page):
         fields = item.get("columns", []) if kind == "table" else [item["column"]]
         if not fields or any(field not in {c["name"] for c in tables[table]["columns"]} for field in fields):
             raise BIError("图表引用了不存在的列。")
-        if kind == 'line' and next(c['type'] for c in tables[table]['columns'] if c['name'] == fields[0]) not in {'date','datetime','int64','double','decimal'}:
+        column_kind = next(c['type'] for c in tables[table]['columns'] if c['name'] == fields[0])
+        if kind == 'line' and column_kind not in {'date','datetime','int64','double','decimal'}:
             raise BIError("趋势图横轴需明确日期或数值类型。")
         roles["Category" if kind in {"column", "bar", "line"} else "Values"] = {"projections": [projection(table, field) for field in fields]}
     if kind not in {"card", "column", "bar", "line", "table", "slicer"}:
@@ -288,11 +290,40 @@ def visual_definition(item, tables, measures, index, page):
     query = {"queryState": roles}
     if kind in {'column','bar','line'}:
         query['sortDefinition'] = {'sort': [{'field': roles['Category']['projections'][0]['field'], 'direction': 'Ascending'}], 'isDefaultSort': True}
+    containers = {"title": [{"properties": {"show": {"expr": {"Literal": {"Value": "true"}}}, "text": literal(item.get("title", kind))}}]}
+    objects = {}
+    # Materialize critical formatting as native visual properties rather than
+    # relying only on theme inheritance (which varies across Desktop versions).
+    styled = bool(page.get("_design_enabled"))
+    if styled:
+        number = lambda n: {"expr":{"Literal":{"Value":str(n)+"D"}}}
+        boolean = lambda b: {"expr":{"Literal":{"Value":"true" if b else "false"}}}
+        containers["title"][0]["properties"]["fontSize"] = number(16)
+        containers['subTitle']=[{'properties':{'show':boolean(False)}}]
+        containers['padding']=[{'properties':{edge:number(12) for edge in ['top','bottom','left','right']}}]
+        if kind=='slicer':
+            objects={'data':[{'properties':{'mode':literal('Dropdown')}}],
+                     'header':[{'properties':{'show':boolean(False)}}],
+                     'items':[{'properties':{'textSize':number(14)}}]}
+        elif kind=='table':
+            objects={'columnHeaders':[{'properties':{'fontSize':number(14),'autoSizeColumnWidth':boolean(True),'columnAdjustment':literal('growToFit')}}],
+                     'values':[{'properties':{'fontSize':number(14)}}],
+                     'grid':[{'properties':{'rowPadding':number(4)}}]}
+        elif kind=='card':
+            objects={'labels':[{'properties':{'fontSize':number(40)}}],
+                     'categoryLabels':[{'properties':{'show':boolean(False)}}]}
+        elif kind in {'column','bar','line'}:
+            objects={'labels':[{'properties':{'show':boolean(True),'fontSize':number(14)}}],
+                     'categoryAxis':[{'properties':{'fontSize':number(14),'showAxisTitle':boolean(False)}}],
+                     'valueAxis':[{'properties':{'fontSize':number(12),'showAxisTitle':boolean(False)}}]}
+    if kind in {'column','line'} and column_kind=='date':
+        objects.setdefault('categoryAxis',[{'properties':{}}])[0]['properties']['axisType']=literal('Categorical')
+    visual = {"visualType": {"card": "card", "column": "clusteredColumnChart", "bar": "clusteredBarChart", "line": "lineChart", "table": "tableEx", "slicer": "slicer"}[kind],
+              "query":query,"drillFilterOtherVisuals":True,"visualContainerObjects":containers}
+    if objects:visual['objects']=objects
     return {"$schema": SCHEMA_BASE + "item/report/definition/visualContainer/2.7.0/schema.json",
             "name": f"visual{index:014x}", "position": {"x": x, "y": y, "width": width, "height": height, "z": index, "tabOrder": index},
-            "visual": {"visualType": {"card": "card", "column": "clusteredColumnChart", "bar": "clusteredBarChart", "line": "lineChart", "table": "tableEx", "slicer": "slicer"}[kind],
-                       "query": query, "drillFilterOtherVisuals": True,
-                       "visualContainerObjects": {"title": [{"properties": {"show": {"expr": {"Literal": {"Value": "true"}}}, "text": literal(item.get("title", kind))}}]}}}
+            "visual": visual}
 
 
 def generate(run_dir, spec_path, output, data_root=None):
@@ -359,7 +390,7 @@ def generate(run_dir, spec_path, output, data_root=None):
                 page['objects'] = {'background':[{'properties':{'color':{'solid':{'color':literal(palette['canvas'])}},'transparency':{'expr':{'Literal':{'Value':'0D'}}}}}]}
             dump(pages / page_id / "page.json", page)
             for visual_index, visual in enumerate(page_spec.get("visuals", []), 1):
-                v = visual_definition(visual, tables, measures, visual_index, page)
+                v = visual_definition(visual, tables, measures, visual_index, {**page,"_design_enabled":bool(palette)})
                 dump(pages / page_id / "visuals" / v["name"] / "visual.json", v)
                 total_visuals += 1
         if not page_ids or not total_visuals:

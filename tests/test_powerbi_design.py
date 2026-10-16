@@ -77,5 +77,38 @@ class DesignTests(unittest.TestCase):
         self.assertIn('D:/Example/data',next(out.rglob('expressions.tmdl')).read_text())
         self.assertEqual(manifest['fields'],4)
 
+    def test_display_regressions_have_native_properties_and_room(self):
+        import json
+        path=self.root/'plan.yaml';path.write_text(yaml.safe_dump(self.plan,allow_unicode=True))
+        out=self.root/'project';generate(RUN,path,out)
+        visuals=[json.loads(p.read_text()) for p in out.rglob('visual.json')]
+        by_type={v['visual']['visualType']:v for v in visuals}
+        slicer=by_type['slicer']['visual']
+        self.assertEqual(slicer['objects']['data'][0]['properties']['mode']['expr']['Literal']['Value'], "'Dropdown'")
+        self.assertEqual(slicer['objects']['header'][0]['properties']['show']['expr']['Literal']['Value'],'false')
+        line=by_type['lineChart']['visual']
+        self.assertEqual(line['objects']['categoryAxis'][0]['properties']['axisType']['expr']['Literal']['Value'], "'Categorical'")
+        table=by_type['tableEx']
+        self.assertGreaterEqual(table['position']['height'],288)
+        self.assertEqual(table['visual']['objects']['values'][0]['properties']['fontSize']['expr']['Literal']['Value'],'14D')
+        self.assertEqual(line['visualContainerObjects']['subTitle'][0]['properties']['show']['expr']['Literal']['Value'],'false')
+
+    def test_timestamp_column_does_not_lose_time_axis(self):
+        import json
+        self.plan['tables'][0]['column_types']={'记录日期':'datetime'}
+        path=self.root/'plan.yaml';path.write_text(yaml.safe_dump(self.plan,allow_unicode=True))
+        out=self.root/'project';generate(RUN,path,out)
+        line=next(json.loads(p.read_text())['visual'] for p in out.rglob('visual.json') if json.loads(p.read_text())['visual']['visualType']=='lineChart')
+        self.assertNotIn('axisType',line['objects']['categoryAxis'][0]['properties'])
+
+    def test_new_layouts_keep_controls_and_sections_separate(self):
+        for layout in ['overview','comparison']:
+            self.plan['pages'][0]['layout']=layout
+            after,_=prepare(self.plan);page=after['pages'][0];audit(page)
+            table=next(v for v in page['visuals'] if v['type']=='table')
+            self.assertGreaterEqual(table['position'][3],288)
+            for chart in (v for v in page['visuals'] if v['type'] in {'line','bar','column'}):
+                self.assertGreaterEqual(chart['position'][3],240)
+
 
 if __name__=='__main__':unittest.main()

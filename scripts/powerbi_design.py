@@ -68,14 +68,14 @@ def prepare(spec, tables=None):
                 raise ValueError('自动布局包含尚未支持的组件。')
             if layout=='detail' and (not tables or charts):
                 raise ValueError('detail 布局用于明细表页面；分析图请放到 overview/comparison。')
-            for i,v in enumerate(slicers):v['position']=[1408+i*248,48,232,120]
+            for i,v in enumerate(slicers):v['position']=[1408+i*248,48,232,128]
             top=216
             if cards:
                 width=math.floor(((1856-24*(len(cards)-1))/len(cards))/8)*8
-                for i,v in enumerate(cards):v['position']=[32+i*(width+24),216,width,144]
-                top=408
+                for i,v in enumerate(cards):v['position']=[32+i*(width+24),216,width,128]
+                top=392
             if charts:
-                bottom=744 if tables else 984
+                bottom=648 if tables else 984
                 rows=math.ceil(len(charts)/2)
                 h=math.floor(((bottom-top-24*(rows-1))/rows)/8)*8
                 if h < 240:
@@ -85,19 +85,19 @@ def prepare(spec, tables=None):
                         x,w=(32,1128) if i==0 else (1184,704)
                     else:x,w=(32+(i%2)*944,912 if len(charts)>1 else 1856)
                     v['position']=[x,top+(i//2)*(h+24),w,h]
-                top=792 if tables else 1032
+                top=696 if tables else 1032
             if tables:tables[0]['position']=[32,top,1856,984-top]
         def label(content,pos,size=12,color=None,bold=False,fill=None):
             return {'type':'text','text':content,'position':pos,'font_size':size,'color':color or palette['ink'],'bold':bold,'fill':fill}
         extras=[
             label(design.get('eyebrow','DATA / INSIGHTS'),[32,24,1200,32],11,palette['accent'],True),
             label(page['title'],[32,64,1320,64],28,bold=True),
-            label(page.get('subtitle',design.get('subtitle','按业务问题组织页面 · 数据来自本次 SQL 校验结果')),[32,136,1320,40],12,palette['muted']),
-            label(page.get('footer','来源：本次 SQL 导出 CSV · 点击筛选器查看联动 · 指标口径见报表说明'),[32,1016,1856,40],10,palette['muted']),
+            label(page.get('subtitle',design.get('subtitle','按业务问题组织页面 · 数据来自本次 SQL 校验结果')),[32,136,1320,40],14,palette['muted']),
+            label(page.get('footer','来源：本次 SQL 导出 CSV · 点击筛选器查看联动 · 指标口径见报表说明'),[32,1016,1856,40],12,palette['muted']),
         ]
-        if cards:extras.append(label('01  /  核心指标',[32,176,1320,32],11,palette['muted'],True))
-        if charts:extras.append(label('02  /  '+('对比与结构' if layout=='comparison' else '分布与趋势'),[32,368 if cards else 176,1320,32],11,palette['muted'],True))
-        if tables and charts:extras.append(label('03  /  明细核查',[32,752,1320,32],11,palette['muted'],True))
+        if cards:extras.append(label('01  /  核心指标',[32,176,1320,32],13,palette['muted'],True))
+        if charts:extras.append(label('02  /  '+('对比与结构' if layout=='comparison' else '分布与趋势'),[32,352 if cards else 176,1320,32],13,palette['muted'],True))
+        if tables and charts:extras.append(label('03  /  明细核查',[32,656,1320,32],13,palette['muted'],True))
         page['visuals']=source+extras
         audit(page)
     return spec, palette
@@ -126,23 +126,24 @@ def theme(palette,name):
         'background':[{'show':True,'color':solid(palette['surface']),'transparency':0}],
         'border':[{'show':True,'color':solid(palette['edge']),'radius':12}],
         'padding':[{'top':16,'bottom':16,'left':16,'right':16}],
-        'title':[{'show':True,'fontSize':13,'fontColor':solid(palette['ink']),'fontFamily':'Segoe UI Semibold'}],
+        'title':[{'show':True,'fontSize':16,'fontColor':solid(palette['ink']),'fontFamily':'Segoe UI Semibold'}],
         'visualHeader':[{'show':False}],
+        'subTitle':[{'show':False}],
     }
     styles={'*':{'*':common},'textbox':{'*':{
         'background':[{'show':False}],'border':[{'show':False}],
         'padding':[{'top':0,'bottom':0,'left':0,'right':0}], 'title':[{'show':False}]}},
-        'card':{'*':{'labels':[{'fontSize':32,'color':solid(palette['accent'])}],
+        'card':{'*':{'labels':[{'fontSize':40,'color':solid(palette['accent'])}],
                      'categoryLabels':[{'show':False}]}},
         'tableEx':{'*':{
-            'columnHeaders':[{'fontSize':12,'fontColor':solid(palette['ink']),'backColor':solid(palette['canvas']),'bold':True,'autoSizeColumnWidth':True,'columnAdjustment':'growToFit'}],
-            'values':[{'fontSize':12,'fontColorPrimary':solid(palette['ink']),'fontColorSecondary':solid(palette['ink']),'backColorPrimary':solid('#FFFFFF'),'backColorSecondary':solid(palette['canvas'])}]}}
+            'columnHeaders':[{'fontSize':14,'fontColor':solid(palette['ink']),'backColor':solid(palette['canvas']),'bold':True,'autoSizeColumnWidth':True,'columnAdjustment':'growToFit'}],
+            'values':[{'fontSize':14,'fontColorPrimary':solid(palette['ink']),'fontColorSecondary':solid(palette['ink']),'backColorPrimary':solid('#FFFFFF'),'backColorSecondary':solid(palette['canvas'])}]}}
     }
     for kind in ['clusteredColumnChart','clusteredBarChart','lineChart']:
         styles[kind]={'*':{
-            'labels':[{'show':True,'fontSize':11,'color':solid(palette['ink'])}],
-            'categoryAxis':[{'fontSize':11,'labelColor':solid(palette['muted']),'showAxisTitle':False}],
-            'valueAxis':[{'fontSize':10,'labelColor':solid(palette['muted']),'showAxisTitle':False,'gridlineColor':solid(palette['edge'])}],
+            'labels':[{'show':True,'fontSize':14,'color':solid(palette['ink'])}],
+            'categoryAxis':[{'fontSize':14,'labelColor':solid(palette['muted']),'showAxisTitle':False}],
+            'valueAxis':[{'fontSize':12,'labelColor':solid(palette['muted']),'showAxisTitle':False,'gridlineColor':solid(palette['edge'])}],
             'legend':[{'show':False}],
         }}
     styles['lineChart']['*']['lineStyles']=[{'strokeWidth':3,'showMarker':True}]
