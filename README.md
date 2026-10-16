@@ -17,7 +17,7 @@ Python 不再承担最终展示图职责。Python 只负责数据质量检查、
 
 Power BI 是最终可视化工具。Power BI 部分会基于真实 ADS 表和真实字段生成详细页面方案、DAX、页面操作说明和讲解话术。BI 样例图由 OpenAI Images API 或图片提示词生成，输出到 `outputs/bi_mockups/`。
 
-SQL 默认使用临时 MySQL 自动执行：预览后启动临时数据库，完成 ODS 建表、数据导入、DWD/ADS 计算、校验、结果和模型导出，然后清理环境。本地/远程已有 MySQL 作为可选方式；不能把预览当成运行成功。Power BI 自动建模/搭页不在本次升级范围。
+SQL 默认使用临时 MySQL 自动执行：预览后启动临时数据库，完成 ODS 建表、数据导入、DWD/ADS 计算、校验、结果和模型导出，然后清理环境。本地/远程已有 MySQL 作为可选方式；不能把预览当成运行成功。Power BI 现可按明确报表计划生成 PBIP 草稿，详见 [Power BI 自动生成说明](docs/PowerBI自动生成说明.md)。
 
 ## 项目执行提示词包
 
@@ -45,7 +45,7 @@ SQL 默认使用临时 MySQL 自动执行：预览后启动临时数据库，完
 5. 检查 `docs/数据字典.md`、`docs/数据质量报告.md`、`docs/表关系说明.md`、`docs/行业识别报告.md`。
 6. 确认项目主题后，继续执行后续提示词。
 7. SQL 生成后，确认临时 MySQL 的执行环境，预览后使用 `--execute` 自动运行、校验、导出和清理。无需复制到 Navicat。
-8. Power BI 阶段按 `powerbi_notes/page_xxx.md` 手动搭建看板，并将截图保存到 `outputs/bi_screenshots/`。
+8. Power BI 阶段按已审核字段和指标配置报表计划，使用 `scripts/generate_powerbi.py` 自动生成模型与基础页面，在 Desktop 刷新检查后，将实际截图保存到 `outputs/bi_screenshots/`。
 
 ## SQL 自动执行：默认临时 MySQL 8.0
 
@@ -107,3 +107,7 @@ $env:OPENAI_API_KEY="你的key"
 ```
 
 不要把 API Key 写进代码。如果无法调用 OpenAI Images API，使用 `powerbi_notes/image_prompts.md` 中的提示词，手动复制到 ChatGPT 图片生成或其他支持 OpenAI Images API 的环境中生成。
+
+### Power BI 设计层
+
+已增加三套主题、原生标题与分区、概览/对比/明细布局、实际类别分布适配，以及无启动脚本交付。使用 `examples/sql_pipeline_demo/powerbi_design_plan.yaml`，详见 [设计升级说明](docs/PowerBI设计升级说明.md)。它根据已审核计划适配页面，不会凭空推断行业指标；新主题和布局仍需 Desktop 显示验证。

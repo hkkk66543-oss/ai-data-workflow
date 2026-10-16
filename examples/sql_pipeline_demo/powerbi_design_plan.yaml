@@ -1,0 +1,88 @@
+project: SqlBiDesign
+launcher: false
+business_purpose: 三行合成数据的 SQL 到 Power BI 链路演示，不代表真实业务成果。
+tables:
+- name: 清洗明细
+  export: 清洗明细
+  source_table: 清洗_记录
+measures:
+- name: 记录数
+  table: 清洗明细
+  aggregation: countrows
+  format: '#,0'
+  description: 合成明细记录行数，随当前筛选条件变化。
+- name: 数值合计
+  table: 清洗明细
+  aggregation: sum
+  column: 数值
+  format: '#,0.00'
+  description: 合成明细数值求和，随当前筛选条件变化。
+relationships: []
+pages:
+- title: 数据概览 · 从结果到洞察
+  width: 1920
+  height: 1080
+  visuals:
+  - type: card
+    title: 记录数（合成）
+    measure: 记录数
+    position:
+    - 40
+    - 40
+    - 560
+    - 160
+  - type: card
+    title: 数值合计（合成）
+    measure: 数值合计
+    position:
+    - 640
+    - 40
+    - 560
+    - 160
+  - type: slicer
+    title: 类别筛选
+    table: 清洗明细
+    column: 类别
+    position:
+    - 1240
+    - 40
+    - 640
+    - 160
+  - type: column
+    title: 各类别数值合计
+    table: 清洗明细
+    column: 类别
+    measure: 数值合计
+    position:
+    - 40
+    - 240
+    - 900
+    - 350
+  - type: line
+    title: 按日期查看数值
+    table: 清洗明细
+    column: 记录日期
+    measure: 数值合计
+    position:
+    - 980
+    - 240
+    - 900
+    - 350
+  - type: table
+    title: 明细（编号保留前导零）
+    table: 清洗明细
+    columns:
+    - 记录编号
+    - 类别
+    - 数值
+    - 记录日期
+    position:
+    - 40
+    - 630
+    - 1840
+    - 400
+  layout: auto
+design:
+  palette: ocean
+  eyebrow: SQL / POWER BI · DESIGN DEMO
+  subtitle: 三行合成数据 · 验证可编辑设计与筛选联动，不作为真实业务结论
