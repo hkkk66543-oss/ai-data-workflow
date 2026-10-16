@@ -15,7 +15,7 @@
 11. 所有分析模块必须基于当前真实字段设计。
 12. 所有指标必须先写业务口径，再写 SQL 或 Python。
 13. SQL 默认使用 MySQL 8.0。
-14. Python 默认使用 pandas、numpy、matplotlib，但只用于数据质量检查、辅助 EDA、异常识别和 SQL 结果校验。
+14. Python 默认使用 pandas、numpy、matplotlib，用于数据质量检查、辅助 EDA、异常识别、SQL 结果校验；另允许使用数据库连接器执行已审核 SQL、导入数据和导出结果。
 15. Python 不是最终可视化工具，不负责生成 README、报告或 Power BI 替代展示图。
 16. 最终可视化工具是 Power BI；BI 样例图可由 OpenAI Images API 或图片提示词生成。
 17. 图表必须服务于业务问题，且必须基于真实字段、真实 ADS 表和明确指标口径。
@@ -76,11 +76,11 @@ SQL 生成完成后，必须说明：
 - 哪些字段是清洗字段。
 - 哪些字段是异常标记字段。
 - 哪些表适合导入 Power BI。
-- 下一步是否需要用户手动去 Navicat 运行 SQL。
+- 是否已具备本地数据库执行条件、预览和实际执行结果；不能默认要求去 Navicat 复制运行。
 
 ## Python 定位规则
 
-1. Python 只做数据质量检查、辅助 EDA、异常识别和 SQL 结果校验。
+1. Python 用于数据质量检查、辅助 EDA、异常识别、SQL 结果校验，以及已授权的数据库执行和数据传输，不生成最终展示图。
 2. Python 不生成最终展示图，不生成用于 README 或报告核心展示的 matplotlib / seaborn 图。
 3. Python 可以生成少量诊断图，但只能保存到 `outputs/diagnostics/charts/`。
 4. Python 输出重点包括：
@@ -119,18 +119,25 @@ SQL 生成完成后，必须说明：
 完成后请回复我什么：
 ```
 
+## SQL 自动执行规则
+
+- 数据理解、行业、项目主题、指标口径与执行计划仍须先确认。
+- 在生成真实 SQL 时，同时配置 `config.local.yaml` 的 imports/checks/exports；密码只通过本机环境变量取得。示例配置不存凭据，真实数据及运行目录不得提交到 Git。
+- 使用 `scripts/run_sql_pipeline.py` 先预览；预览不连接数据库，不能称为 SQL 已执行或业务校验通过。
+- 用户授权目标项目库及已审核 SQL 后，可用 `--execute` 连续执行 ODS、导入、DWD、ADS、校验、导出，不要求用户逐层复制或反馈结果。
+- 失败即停，不自动用大模型修改并重跑，不从部分完成处盲目续跑。MySQL DDL 有隐式提交，禁止宣称整条流水线能够回滚。
+- 缺少环境、数据库连接、本地数据或业务口径时，明确缺少项；只在确实无法访问用户数据库时交接本机操作。不能要求用户把数据库密码发到聊天。
+- 校验 SQL 必须明确配置零异常行或一行一列等于期望值；业务异常要阻断导出。空 SQL、空校验配置不算成功。
+- 成功交付只能使用本次 `status: passed` 的 `outputs/runs/<run_id>/tables/`；不能引用历史运行/partial 目录冒充新结果。
+- 已授权的执行细节自动连续完成；更换目标库、扩大改写范围或改变业务口径需重新确认。
+- 本次不改变 Power BI 最终展示定位。BI 手动搭页及配置本机环境仍需明确交接。
+
 常见手动场景包括：
 
-- 把 CSV / Excel / JSON 放到 `data/raw/`，且不要修改原始文件。
-- 在 Navicat / MySQL 中创建数据库，字符集建议 `utf8mb4`，排序规则建议 `utf8mb4_general_ci` 或 `utf8mb4_0900_ai_ci`。
-- 在 Navicat 中按 `sql/01_ods/`、`sql/02_dwd/`、`sql/03_ads/`、`sql/04_checks/` 顺序运行 SQL。
-- 导入 CSV 到 MySQL，并检查导入行数。
-- 导出 ADS 表到 `outputs/tables/`。
-- 配置 `OPENAI_API_KEY`，Windows PowerShell 临时设置命令为 `$env:OPENAI_API_KEY="你的key"`。
-- 运行 `scripts/generate_bi_mockups_with_openai.py` 生成 BI 样例图。
-- 在 Power BI 中导入 ADS 表或 CSV。
-- 在 Power BI 中手动搭建页面并截图。
-- 将 Power BI 页面截图保存到 `outputs/bi_screenshots/`，README 优先引用 Power BI 截图或 BI 样例图。
+- 把真实 CSV / Excel / JSON 放到 `data/raw/`，不要修改原始文件。
+- 第一次在本机填写数据库连接并设置密码环境变量，或由数据库管理员提供项目账号。
+- 云端无法连接本机 MySQL 时，在本机运行执行入口并提供脱敏后的 `run.json`。
+- 配置 `OPENAI_API_KEY`（仅在需要 BI 样例图时）、在 Power BI 中导入本次成功导出的表、搭建页面并截图。
 
 每次执行阶段结束时，Codex 必须输出：
 
