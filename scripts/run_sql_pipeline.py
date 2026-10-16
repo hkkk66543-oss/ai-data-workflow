@@ -18,6 +18,13 @@ import pandas as pd
 import sqlparse
 import yaml
 
+if __package__:
+    from .temporary_mysql import TemporaryMySQL, RuntimeUnavailable
+    from .sql_artifacts import artifact_manifest, engine_info, save_model, snapshot_sources
+else:
+    from temporary_mysql import TemporaryMySQL, RuntimeUnavailable
+    from sql_artifacts import artifact_manifest, engine_info, save_model, snapshot_sources
+
 ROOT = Path(__file__).resolve().parents[1]
 LAYERS = ("01_ods", "02_dwd", "03_ads")
 NAME = re.compile(r"^[\w]+$", re.UNICODE)
@@ -72,9 +79,13 @@ def load_plan(root, config_path):
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     if not isinstance(config, dict):
         raise PipelineError("配置必须为 YAML 对象。")
-    db = config.get("database", {})
-    identifier(db.get("name"))
-    if not isinstance(db.get("user"), str) or not db["user"]:
+    db = config.setdefault("database", {})
+    db.setdefault("mode", "temporary")
+    db.setdefault("name", "analysis_run")
+    if db["mode"] not in {"temporary", "existing"}:
+        raise PipelineError("database.mode 只支持 temporary / existing。")
+    identifier(db["name"])
+    if db["mode"] == "existing" and (not isinstance(db.get("user"), str) or not db["user"]):
         raise PipelineError("请填写 database.user。")
     if not isinstance(db.get("port", 3306), int):
         raise PipelineError("database.port 必须为整数。")
@@ -335,7 +346,7 @@ def execute_plan(root, config, plan, conn, run_dir, report):
         finally:
             cursor.close()
     conn.commit()
-    temporary.rename(run_dir / "tables")
+    # Published only after model capture and temporary-environment cleanup succeed.
 
 
 def connect(config):
@@ -380,27 +391,51 @@ def connect(config):
         raise
 
 
-def run(root, config_path, execute=False, connection_factory=connect):
+def run(root, config_path, execute=False, connection_factory=None, runtime_factory=TemporaryMySQL):
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + uuid.uuid4().hex[:8]
     run_dir = root / "outputs" / "runs" / run_id
     run_dir.mkdir(parents=True)
     report = {"run_id": run_id, "mode": "execute" if execute else "preview", "status": "failed", "events": []}
     conn = None
+    runtime = None
     try:
         config, plan = load_plan(root, config_path)
         batch_size = config.get("sql_pipeline", {}).get("batch_size", 1000)
         if not isinstance(batch_size, int) or batch_size < 1:
             raise PipelineError("batch_size 必须为正整数。")
         report["input_sha256"] = plan["hashes"]
-        report["plan"] = {"target": {"host": config["database"].get("host", "127.0.0.1"), "port": config["database"].get("port", 3306), "database": config["database"]["name"], "user": config["database"]["user"], "create_if_missing": config["database"].get("create_if_missing", False)},
+        db = config["database"]
+        target = {"mode": db["mode"], "database": db["name"]}
+        if db["mode"] == "existing":
+            target.update(host=db.get("host", "127.0.0.1"), port=db.get("port", 3306), user=db["user"],
+                          create_if_missing=db.get("create_if_missing", False))
+        else:
+            target["runtime"] = config.get("temporary_mysql", {}).get("backend", "auto")
+        report["plan"] = {"target": target,
                           "sql_files": [str(p.relative_to(root)) for scripts in plan["layers"].values() for p, parts in scripts if parts],
                           "imports": [i["table"] for _, i in plan["imports"]],
                           "checks": [i["name"] for _, _, i in plan["checks"]],
                           "exports": [i["name"] for _, _, i in plan["exports"]]}
         if execute:
-            conn = connection_factory(config)
-            acquire_lock(conn, config["database"]["name"])
+            snapshot_sources(root, plan, run_dir)
+            if connection_factory is not None:
+                conn = connection_factory(config)
+            elif db["mode"] == "temporary":
+                runtime = runtime_factory(db["name"], config.get("temporary_mysql", {}))
+                report["runtime"] = runtime.state
+                conn = runtime.start()
+            else:
+                conn = connect(config)
+            report["engine"] = engine_info(conn)
+            acquire_lock(conn, db["name"])
             execute_plan(root, config, plan, conn, run_dir, report)
+            report["model"] = save_model(conn, db["name"], plan, run_dir)
+            conn.close()
+            conn = None
+            if runtime:
+                runtime.close()
+            (run_dir / "tables.partial").rename(run_dir / "tables")
+            artifact_manifest(run_dir)
             report["status"] = "passed"
         else:
             report["status"] = "preview_only"
@@ -412,7 +447,7 @@ def run(root, config_path, execute=False, connection_factory=connect):
             except Exception:
                 pass
         # Driver messages may contain passwords, SQL literals or raw customer data.
-        error = str(exc) if isinstance(exc, PipelineError) else type(exc).__name__
+        error = str(exc) if isinstance(exc, (PipelineError, RuntimeUnavailable)) else type(exc).__name__
         report["error"] = {"message": error, "errno": getattr(exc, "errno", None), "sqlstate": getattr(exc, "sqlstate", None)}
         if report["events"] and "status" not in report["events"][-1]:
             report["events"][-1]["status"] = "failed"
@@ -423,18 +458,29 @@ def run(root, config_path, execute=False, connection_factory=connect):
                 conn.close()
             except Exception:
                 pass
+        if runtime and runtime.state.get("cleanup") != "completed":
+            try:
+                runtime.close()
+            except Exception:
+                report["status"] = "failed"
+                report["cleanup_error"] = "临时环境清理失败，请检查本次 runtime 记录。"
+        # If manifest saving failed, never leave a formally published tables folder.
+        if report["status"] == "failed" and (run_dir / "tables").exists():
+            (run_dir / "tables").rename(run_dir / "tables.partial")
         (run_dir / "run.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def main():
     parser = argparse.ArgumentParser(description="预览/执行项目 MySQL SQL 流水线；不调用大模型，不需要 OpenAI Key。")
-    parser.add_argument("--config", default="config.local.yaml")
+    parser.add_argument("--config", default="config.example.yaml")
+    parser.add_argument("--project-dir", default=str(ROOT), help="项目根目录，默认本仓库")
     parser.add_argument("--execute", action="store_true", help="实际连接数据库并执行已审核的 SQL")
     args = parser.parse_args()
-    path = (ROOT / args.config).resolve()
-    if not path.is_relative_to(ROOT):
+    root = Path(args.project_dir).resolve()
+    path = (root / args.config).resolve()
+    if not path.is_relative_to(root):
         parser.error("配置文件必须位于项目目录。")
-    code, directory, report = run(ROOT, path, args.execute)
+    code, directory, report = run(root, path, args.execute)
     print(json.dumps({"status": report["status"], "plan": report.get("plan"), "report": str(directory / "run.json"), "error": report.get("error")}, ensure_ascii=False, indent=2))
     sys.exit(code)
 

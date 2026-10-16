@@ -18,16 +18,25 @@ analysis:
   missing_value_check: true
   infer_relationships: true
 
-# 复制为 config.local.yaml 后填写；不要在此保存密码。
+# 默认临时 MySQL，不需要已有数据库地址/账号/密码。
 database:
-  host: 127.0.0.1
-  port: 3306
-  name: your_project_db
-  user: your_project_user
-  password_env: MYSQL_PASSWORD
-  create_if_missing: false
-  # 远程连接可填写 CA 文件；启用证书及主机名验证。
+  mode: temporary   # 可选 existing，连接现有本地/远程 MySQL 8.0
+  name: analysis_run
+  # 仅 existing 模式填写以下字段：
+  # host: 127.0.0.1
+  # port: 3306
+  # user: your_project_user
+  # password_env: MYSQL_PASSWORD
+  # create_if_missing: false
   # ssl_ca: C:/certs/ca.pem
+
+temporary_mysql:
+  backend: auto   # auto 优先使用 MYSQLD_PATH，否则使用 Docker
+  image: mysql:8.0.46
+  startup_timeout: 120
+  # Linux/Unix 执行环境可指定已准备好的官方二进制，或设置 MYSQLD_PATH：
+  # mysqld_path: /opt/mysql/bin/mysqld
+  # transport: unix  # native: unix/tcp；tcp 也仅绑定回环随机端口
 
 sql_pipeline:
   batch_size: 1000

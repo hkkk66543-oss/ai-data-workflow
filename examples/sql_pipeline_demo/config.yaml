@@ -1,0 +1,31 @@
+# 全部为合成演示数据，不代表任何真实业务分析结果。
+database:
+  mode: temporary
+  name: analysis_demo
+temporary_mysql:
+  backend: auto
+  image: mysql:8.0.46
+  startup_timeout: 120
+sql_pipeline:
+  batch_size: 2
+  imports:
+    - file: data/raw/records.csv
+      table: 原始_记录
+      columns:
+        record_id: 记录编号
+        category: 类别
+        amount: 数值
+        event_date: 记录日期
+  checks:
+    - name: 主键唯一
+      sql_file: sql/04_checks/unique.sql
+      expect: zero_rows
+    - name: 汇总勾稽
+      sql_file: sql/04_checks/reconcile.sql
+      expect: scalar_equals
+      value: 0
+  exports:
+    - name: 类别汇总
+      sql_file: sql/exports/summary.sql
+    - name: 清洗明细
+      sql_file: sql/exports/detail.sql

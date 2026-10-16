@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 import yaml
@@ -98,7 +99,7 @@ class PipelineTests(unittest.TestCase):
         self.write("sql/03_ads/export.sql", "SELECT id FROM 应用;")
         self.write("sql/04_checks/unique.sql", "SELECT id FROM 清洗 GROUP BY id HAVING COUNT(*) > 1;")
         self.write("data/raw/input.csv", "source_id,value\n00123,NA\n00456,\n")
-        self.config = {"database": {"name": "test_db", "user": "tester"}, "sql_pipeline": {
+        self.config = {"database": {"name": "test_db", "user": "tester", "mode": "existing"}, "sql_pipeline": {
             "batch_size": 1,
             "imports": [{"file": "data/raw/input.csv", "table": "原始", "columns": {"source_id": "id"}}],
             "checks": [{"name": "唯一性", "sql_file": "sql/04_checks/unique.sql", "expect": "zero_rows"}],
@@ -106,6 +107,12 @@ class PipelineTests(unittest.TestCase):
         }}
         self.path = self.root / "config.local.yaml"
         self.save_config()
+        engine = patch("scripts.run_sql_pipeline.engine_info", return_value={"version": "8.0.fake"})
+        model = patch("scripts.run_sql_pipeline.save_model", return_value={"tables": 3, "fields": 3})
+        engine.start()
+        model.start()
+        self.addCleanup(engine.stop)
+        self.addCleanup(model.stop)
 
     def write(self, path, content):
         (self.root / path).write_text(content, encoding="utf-8")
@@ -172,6 +179,30 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(report["events"], [])
         self.assertFalse(any(s.startswith("CREATE TABLE") for s in conn.executed))
         self.assertTrue(conn.closed)
+
+    def test_model_capture_failure_does_not_publish_tables(self):
+        conn = Connection()
+        with patch("scripts.run_sql_pipeline.save_model", side_effect=OSError("disk error")):
+            code, directory, report = run(self.root, self.path, True, lambda _: conn)
+        self.assertEqual(code, 1)
+        self.assertFalse((directory / "tables").exists())
+        self.assertTrue((directory / "tables.partial").exists())
+        self.assertTrue((directory / "source/sql/01_ods/01.sql").exists())
+
+    def test_temporary_cleanup_failure_does_not_publish_tables(self):
+        self.config["database"]["mode"] = "temporary"
+        self.save_config()
+        class Runtime:
+            state = {"cleanup": "not_started"}
+            def start(inner):
+                return Connection()
+            def close(inner):
+                inner.state["cleanup"] = "failed"
+                raise PipelineError("cleanup failed")
+        code, directory, report = run(self.root, self.path, True, runtime_factory=lambda *args: Runtime())
+        self.assertEqual(code, 1)
+        self.assertEqual(report["runtime"]["cleanup"], "failed")
+        self.assertFalse((directory / "tables").exists())
 
     def test_import_warning_stops_pipeline_and_rolls_back(self):
         conn = Connection()

@@ -17,7 +17,7 @@ Python 不再承担最终展示图职责。Python 只负责数据质量检查、
 
 Power BI 是最终可视化工具。Power BI 部分会基于真实 ADS 表和真实字段生成详细页面方案、DAX、页面操作说明和讲解话术。BI 样例图由 OpenAI Images API 或图片提示词生成，输出到 `outputs/bi_mockups/`。
 
-SQL 现在支持本地自动执行：预览计划后，程序直接连接 MySQL，完成 ODS 建表、数据导入、DWD/ADS 计算、业务校验与 CSV 导出。仅在缺少本地连接条件时需要用户操作；不能把预览当成运行成功。Power BI 自动建模/搭页不在本次升级范围。
+SQL 默认使用临时 MySQL 自动执行：预览后启动临时数据库，完成 ODS 建表、数据导入、DWD/ADS 计算、校验、结果和模型导出，然后清理环境。本地/远程已有 MySQL 作为可选方式；不能把预览当成运行成功。Power BI 自动建模/搭页不在本次升级范围。
 
 ## 项目执行提示词包
 
@@ -44,26 +44,40 @@ SQL 现在支持本地自动执行：预览计划后，程序直接连接 MySQL�
 4. 从 `prompts/project_run/01_项目启动_数据理解与行业识别.md` 开始执行。
 5. 检查 `docs/数据字典.md`、`docs/数据质量报告.md`、`docs/表关系说明.md`、`docs/行业识别报告.md`。
 6. 确认项目主题后，继续执行后续提示词。
-7. SQL 生成后，按下方说明配置本地 MySQL，预览后使用 `--execute` 自动运行、校验和导出。无需逐段复制到 Navicat。
+7. SQL 生成后，确认临时 MySQL 的执行环境，预览后使用 `--execute` 自动运行、校验、导出和清理。无需复制到 Navicat。
 8. Power BI 阶段按 `powerbi_notes/page_xxx.md` 手动搭建看板，并将截图保存到 `outputs/bi_screenshots/`。
 
-## SQL 自动执行入口
+## SQL 自动执行：默认临时 MySQL 8.0
 
-详细配置见 [SQL 自动执行说明](docs/SQL自动执行说明.md)。首次需要 Python 3.10+、MySQL 8.0、真实分层 SQL 及本机连接配置。数据库密码只放本机环境变量；不需要提供给聊天助手。
+默认在执行环境中创建临时 MySQL 8.0，自动分配连接、导入数据、执行已确认 SQL、校验并导出，然后删除临时数据库。用户无需安装或连接自己的 MySQL、无需提供数据库密码。执行环境仍需能运行 Docker，或在 Linux/Unix 中提供现成的 MySQL 8.0 mysqld 二进制；缺少运行条件时明确失败，不切换 DuckDB 或模拟执行。
 
 ```powershell
 python -m pip install -r requirements.txt
-Copy-Item config.example.yaml config.local.yaml
-# 填写本地连接、导入字段映射、校验和导出查询，并在本机设置 MYSQL_PASSWORD
-python scripts/run_sql_pipeline.py            # 只预览，不连接数据库
-python scripts/run_sql_pipeline.py --execute  # 执行已审核的计划
+# 基于真实数据生成分层 SQL，并填写配置中的 imports/checks/exports
+python scripts/run_sql_pipeline.py            # 预览，不启动数据库
+python scripts/run_sql_pipeline.py --execute  # 实际启动临时 MySQL 并执行
 ```
 
-执行顺序：ODS → 导入原始文件 → DWD → ADS → 校验 → 导出。目标原始表非空会拒绝重复导入；校验失败不导出。每次运行输出到独立的 `outputs/runs/<run_id>/`，只有完整成功才生成 `tables/`；`run.json` 保存结果与出错文件/语句序号。
+可先用随附的三行合成数据验证链路（不代表真实业务成果）：
 
-母版没有业务数据与真实 ODS/DWD/ADS SQL，必须先按既有数据理解流程生成；空 SQL 或未配置校验会失败，不会虚报成功。MySQL DDL 无法整体回滚，首次建议使用项目专用新库。本版本不自动调用 AI 修复 SQL、不无限重试、不自动续跑。
+```powershell
+python scripts/run_sql_pipeline.py --project-dir examples/sql_pipeline_demo --config config.yaml --execute
+```
 
-验证：`python -m unittest discover -s tests -v`。测试采用模拟驱动，真实 MySQL 8.0 联调需要在可访问你的数据库的电脑上完成。
+每次运行在 `outputs/runs/<run_id>/` 保留：
+
+- `tables/*.csv`：配置选择的真实查询结果；全部校验与导出成功后才交付。
+- `model/fields.csv`、`model/model.json`：实际字段类型、注释、主键标识、显式外键和原始字段映射；加工逻辑见 SQL，不凭空推断字段血缘。
+- `model/schema.sql`：实际 MySQL 建表/视图定义。
+- `source/sql/`：此次使用的 SQL 原文件，保留源代码。
+- `manifest.json`：产物清单、大小及 SHA-256。
+- `run.json`：实际 MySQL 版本、校验结果、执行记录及临时环境清理状态。
+
+失败保留已保存的 SQL 与运行记录，停止交付成功结果，并尝试清理临时环境。临时数据库不是长期存储；原始数据不删除。现有本地/远程 MySQL 仍可通过 `database.mode: existing` 使用，程序不会删除该库。
+
+详细环境条件、现有数据库配置、失败处理与限制见 [SQL 自动执行说明](docs/SQL自动执行说明.md)。母版无真实业务 SQL/数据，需先完成数据理解和指标确认；空母版不会虚报成功。SQL 生成和 AI 自动修复不属于执行器本身。
+
+验证：`python -m unittest discover -s tests -v`。设置 `MYSQLD_PATH` 后还会运行真实 MySQL 8.0 原生临时环境的端到端测试；Docker 生命周期有模拟测试，容器分支尚未在当前无 Docker 环境中实测。
 
 ## 主要输出
 
@@ -75,7 +89,7 @@ python scripts/run_sql_pipeline.py --execute  # 执行已审核的计划
 - SQL 中英文命名映射表：`docs/SQL中英文命名映射表.md`
 - SQL：`sql/01_ods/`、`sql/02_dwd/`、`sql/03_ads/`、`sql/04_checks/`
 - SQL 执行入口：`scripts/run_sql_pipeline.py`
-- 执行结果：`outputs/runs/<run_id>/run.json`、成功运行的 `tables/*.csv`
+- 执行结果：`outputs/runs/<run_id>/` 下的 `run.json`、`tables/*.csv`、`model/`、`source/` 和 `manifest.json`
 - Python 辅助检查：`scripts/data_quality_check.py`、`scripts/eda_summary.py`、`scripts/sql_result_check.py`
 - Power BI 方案：`powerbi_notes/`
 - BI 样例图：`outputs/bi_mockups/`
