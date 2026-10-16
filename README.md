@@ -9,11 +9,11 @@
 - 不虚构业务背景、字段、数据和结论。
 - 行业未确认前，不套用任何固定行业指标。
 
-## 新版工作流边界
+## 工作流说明
 
 SQL 默认使用简约中文表名和中文字段名，提升 Navicat、Power BI 和报告阅读体验。MySQL 中文标识符必须使用反引号，例如 `应用_每日概览`、`用户编号`、`事件数`。
 
-Python 不再承担最终展示图职责。Python 只负责数据质量检查、辅助 EDA、异常识别、SQL 结果辅助校验和导出检查。诊断图如确需生成，只能保存到 `outputs/diagnostics/charts/`，且不作为 README 或报告核心展示图。
+Python 负责数据质量检查、辅助 EDA、异常识别、SQL 执行、结果辅助校验和导出检查。诊断图如确需生成，只能保存到 `outputs/diagnostics/charts/`，且不作为 README 或报告核心展示图。
 
 Power BI 是最终可视化工具。Power BI 部分会基于真实 ADS 表和真实字段生成详细页面方案、DAX、页面操作说明和讲解话术。BI 样例图由 OpenAI Images API 或图片提示词生成，输出到 `outputs/bi_mockups/`。
 
@@ -21,7 +21,7 @@ Power BI 是最终可视化工具。Power BI 部分会基于真实 ADS 表和真
 
 ## 项目执行提示词包
 
-真正做项目时，不要从聊天记录里找提示词，而是按 `prompts/project_run/` 文件夹顺序执行：
+项目按 `prompts/project_run/` 文件夹中的提示词顺序执行：
 
 1. `00_使用说明.md`
 2. `01_项目启动_数据理解与行业识别.md`
@@ -45,11 +45,9 @@ Power BI 是最终可视化工具。Power BI 部分会基于真实 ADS 表和真
 5. 检查 `docs/数据字典.md`、`docs/数据质量报告.md`、`docs/表关系说明.md`、`docs/行业识别报告.md`。
 6. 确认项目主题后，继续执行后续提示词。
 7. SQL 生成并确认后，由执行器在临时 MySQL 8.0 中自动完成 ODS、导入、DWD、ADS、CHECKS、结果和字段导出，再清理实例，无需复制 SQL 到 Navicat。SQL 源码与运行结果均保留。
-8. Power BI 阶段仍先生成 `powerbi_notes/page_xxx.md` 页面方案，再根据已确认的字段、指标和布局自动生成可编辑 Power BI 工程，包含模型、基础 DAX、主题与原生图表，无需逐项复制代码或手动搭建支持的组件。最后在 Desktop 打开、刷新和验收，并将截图保存到 `outputs/bi_screenshots/`。
+8. Power BI 阶段先生成 `powerbi_notes/page_xxx.md` 页面方案，再根据已确认的字段、指标和布局自动生成可编辑 Power BI 工程，包含模型、基础 DAX、主题与原生图表，无需逐项复制代码或手动搭建支持的组件。最后在 Desktop 打开、刷新和验收，并将截图保存到 `outputs/bi_screenshots/`。
 
-本次升级只替换 SQL 执行和 Power BI 搭建的操作方式，以上提示词顺序、阶段确认、数据理解、行业识别、主题与指标确认、QA、Python 辅助分析、报告、README、简历、面试稿和复盘流程均按原方式执行。合成演示是开发验证材料，不是每次分析的必做步骤。
-
-自动化的环境条件与配置细节见 [SQL 自动执行说明](docs/SQL自动执行说明.md)、[Power BI 自动生成说明](docs/PowerBI自动生成说明.md) 和 [Power BI 设计升级说明](docs/PowerBI设计升级说明.md)。执行器需可用的 MySQL 8.0 环境；新看板仍需 Desktop 刷新验收。
+自动化的环境条件与配置细节见 [SQL 自动执行说明](docs/SQL自动执行说明.md)、[Power BI 自动生成说明](docs/PowerBI自动生成说明.md) 和 [Power BI 主题与布局说明](docs/PowerBI设计升级说明.md)。执行器需可用的 MySQL 8.0 环境；生成的看板需在 Desktop 中刷新验收。
 
 ## 主要输出
 
