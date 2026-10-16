@@ -17,3 +17,52 @@ analysis:
   duplicate_check: true
   missing_value_check: true
   infer_relationships: true
+
+# 默认临时 MySQL，不需要已有数据库地址/账号/密码。
+database:
+  mode: temporary   # 可选 existing，连接现有本地/远程 MySQL 8.0
+  name: analysis_run
+  # 仅 existing 模式填写以下字段：
+  # host: 127.0.0.1
+  # port: 3306
+  # user: your_project_user
+  # password_env: MYSQL_PASSWORD
+  # create_if_missing: false
+  # ssl_ca: C:/certs/ca.pem
+
+temporary_mysql:
+  backend: auto   # auto 优先使用 MYSQLD_PATH，否则使用 Docker
+  image: mysql:8.0.46
+  startup_timeout: 120
+  # Linux/Unix 执行环境可指定已准备好的官方二进制，或设置 MYSQLD_PATH：
+  # mysqld_path: /opt/mysql/bin/mysqld
+  # transport: unix  # native: unix/tcp；tcp 也仅绑定回环随机端口
+
+sql_pipeline:
+  batch_size: 1000
+  # 字段与 SQL 必须来自真实数据。以下只是配置格式，不会自动推断建表。
+  # ODS 建表文件放 sql/01_ods/，其余层按现有目录放置。
+  imports: []
+  # imports:
+  #   - file: data/raw/your_data.csv
+  #     table: 原始_数据表
+  #     encoding: utf-8-sig
+  #     delimiter: ','
+  #     null_values: ['']  # 空字符串按 NULL；不要默认把 NA 等业务值当缺失
+  #     columns:
+  #       source_id: 记录编号
+  #       source_value: 指标值
+  # XLSX 可增加 sheet: 0；JSON 仅支持 records 对象数组。
+  checks: []
+  # checks:
+  #   - name: 主键重复检查
+  #     sql_file: sql/04_checks/01_unique.sql
+  #     expect: zero_rows  # 查询返回异常行，零行才通过
+  #   - name: 汇总差额检查
+  #     sql_file: sql/04_checks/02_reconcile.sql
+  #     expect: scalar_equals  # 必须仅返回一行一列
+  #     value: 0
+  exports: []
+  # exports:
+  #   - name: 应用_概览
+  #     sql_file: sql/exports/overview.sql

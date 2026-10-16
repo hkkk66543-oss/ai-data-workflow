@@ -41,25 +41,15 @@ SQL 生成后必须说明：
 - 哪些字段是异常标记字段。
 - 哪些表适合导入 Power BI。
 
-如果需要用户在 Navicat / MySQL 中运行 SQL，必须输出：
+SQL 自动执行交付：
 
-```text
-【需要你手动操作】
-操作目标：在 Navicat / MySQL 中按分层运行 SQL。
-为什么需要你操作：Codex 可以生成 SQL 文件，但不能替你在本地 Navicat 中确认连接、创建数据库和执行 SQL。
-具体步骤：
-1. 打开 Navicat，连接 MySQL。
-2. 新建数据库，字符集选择 utf8mb4，排序规则选择 utf8mb4_general_ci 或 utf8mb4_0900_ai_ci。
-3. 打开查询窗口。
-4. 先运行 sql/01_ods/ 中的 SQL。
-5. 再运行 sql/02_dwd/ 中的 SQL。
-6. 再运行 sql/03_ads/ 中的 SQL。
-7. 最后运行 sql/04_checks/ 中的 SQL。
-8. 每运行完一层，检查是否有报错和表是否创建成功。
-完成后你应该看到：数据库中出现原始、清洗、应用和校验层中文表。
-如果报错怎么办：复制完整报错、出错 SQL 文件名和出错语句给 Codex，然后使用 04_SQL报错修复.md。
-完成后请回复我什么：请回复“SQL 已运行完成”或粘贴完整 SQL 报错。
-```
+1. 阅读 `docs/SQL自动执行说明.md`。
+2. 根据真实原始数据、ODS 字段、业务口径，填写配置的 imports/checks/exports，默认 database.mode: temporary；无需用户数据库账号。仅自选 existing 时配置连接，不写入密码。
+3. 校验查询放 `sql/04_checks/`，必须配置 zero_rows 或 scalar_equals；导出查询建议放 `sql/exports/`，只包含一条 SELECT。
+4. 运行 `python scripts/run_sql_pipeline.py` 检查计划；没有真实 SQL 或校验时应失败，不能将母版注释当作已执行。
+5. 用户已确认项目与 SQL、且执行环境支持临时 MySQL 时，运行 `python scripts/run_sql_pipeline.py --execute`；顺序为 ODS → 导入 → DWD → ADS → 校验 → 导出。
+6. 读取本次 run.json，报告真实 MySQL 版本与清理状态；失败按文件及语句序号排错，不自动重跑。结果在 tables/、建模字段/DDL 在 model/、SQL 源码在 source/sql/。
+7. 执行环境不支持临时 MySQL 或尚无执行授权时，说明缺少条件；不默认要求连接用户本机、不要求提供密码。existing 模式仅在用户选择时使用。
 
 阶段结束时必须输出：
 

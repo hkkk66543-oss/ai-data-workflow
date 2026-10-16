@@ -9,3 +9,14 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/sample/.gitkeep
+# 本机连接配置、凭据与执行产物
+config.local.yaml
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+outputs/runs/
+
+examples/*/outputs/

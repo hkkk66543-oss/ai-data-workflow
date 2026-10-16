@@ -1,6 +1,6 @@
 # 07 生成 Power BI 方案
 
-请只执行本阶段。执行前必须读取真实 ADS 表说明、`docs/指标口径.md`、`docs/SQL中英文命名映射表.md` 和 QA 结果。
+请只执行本阶段。优先从本次 status: passed 的运行读取 tables/、model/fields.csv、model/model.json、source/sql/ 和 run.json；临时模式还需确认清理完成。不得根据已删除的临时数据库编造新结果。执行前必须读取真实 ADS 表说明、`docs/指标口径.md`、`docs/SQL中英文命名映射表.md` 和 QA 结果。
 
 任务：
 
