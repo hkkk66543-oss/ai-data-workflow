@@ -1,113 +1,154 @@
-# 通用 AI 数据分析工作流母版
+# AI 数据分析自动化工作流
 
-本项目是一套通用 AI 数据分析工作流母版，不绑定单一行业。它用于把不同业务场景的数据集转化为可展示、可复用、适合 GitHub、简历和面试讲解的数据分析项目。
+从数据理解、行业识别和指标确认，到 **MySQL 8.0 自动执行 → 结果与模型导出 → 可编辑 Power BI 看板生成** 的通用项目母版。适用于不同业务数据集，不预设行业或套用固定电商指标。
 
-## 核心定位
+当前版本已将临时 MySQL 执行器、Power BI 工程生成器、三套主题与自适应布局合并到 `main`。业务分析由 AI 辅助完成，程序负责执行已确认的 SQL 和报表计划；每份新看板仍需在 Power BI Desktop 中刷新验收。
 
-- 支持电商、互联网产品、用户增长、金融风控、内容平台、教育、招聘、零售经营、运营分析等不同方向。
-- 每个真实项目都必须先做数据理解和行业识别，再确认主题、指标和执行计划。
-- 不虚构业务背景、字段、数据和结论。
-- 行业未确认前，不套用任何固定行业指标。
+## 已实现的能力
 
-## 新版工作流边界
+| 环节 | 当前能力 | 保留的产物 |
+| --- | --- | --- |
+| 理解与规划 | 根据字段、样例及业务说明识别行业，确认主题、数据粒度与指标口径 | 数据字典、质量报告、分析计划 |
+| SQL 自动执行 | 自动创建临时 MySQL 8.0，执行 ODS → 导入 → DWD → ADS → 校验 → 导出，最后清理实例 | SQL 源码、CSV 结果、实际表结构与字段、执行记录 |
+| Power BI 自动生成 | 依据明确 YAML 计划生成 Power Query、TMDL 模型、基础 DAX、显式关系和 PBIR 页面 | 可编辑 `.pbip` 工程与随附 CSV |
+| 看板设计 | 蓝色 ocean、绿色 forest、紫色 plum；概览、对比、明细与手动布局；原生标题和分区 | 主题、页面计划、数据特征记录 |
+| 布局适配 | 根据已配置组件、实际类别数量及标签长度调整布局；检测越界、重叠和页面过密 | `design-profile.json` |
+| 质量与验收 | SQL 检查、文件哈希核验、字段与数值范围检查、关系约束检查；Desktop 中人工确认显示与交互 | `run.json`、`manifest.json`、实际截图 |
 
-SQL 默认使用简约中文表名和中文字段名，提升 Navicat、Power BI 和报告阅读体验。MySQL 中文标识符必须使用反引号，例如 `应用_每日概览`、`用户编号`、`事件数`。
+支持指标卡、折线图、柱状图、横向条形图、明细表和筛选器。生成器使用 Power BI 原生组件，可继续在 Desktop 编辑。
 
-Python 不再承担最终展示图职责。Python 只负责数据质量检查、辅助 EDA、异常识别、SQL 结果辅助校验和导出检查。诊断图如确需生成，只能保存到 `outputs/diagnostics/charts/`，且不作为 README 或报告核心展示图。
+## 工作流
 
-Power BI 是最终可视化工具。Power BI 部分会基于真实 ADS 表和真实字段生成详细页面方案、DAX、页面操作说明和讲解话术。BI 样例图由 OpenAI Images API 或图片提示词生成，输出到 `outputs/bi_mockups/`。
+1. **理解数据**：检查字段、数据粒度、缺失、重复和时间范围，识别业务场景。
+2. **确认分析口径**：确定分析问题、指标、币种换算、取消与异常记录处理方式。
+3. **生成执行计划与 SQL**：分层保存 SQL，配置导入映射、检查规则和结果导出。
+4. **自动执行 MySQL**：先预览，授权执行后启动临时实例，完成计算、校验和导出，再清理数据库。
+5. **生成 Power BI 工程**：按本次成功结果与明确的报表计划建立模型、DAX、主题和页面。
+6. **Desktop 验收**：完整解压工程、设置数据路径、刷新，核对数字、文字和筛选交互。
+7. **整理项目成果**：生成分析报告、README、简历描述及面试讲解稿。
 
-SQL 默认使用临时 MySQL 自动执行：预览后启动临时数据库，完成 ODS 建表、数据导入、DWD/ADS 计算、校验、结果和模型导出，然后清理环境。本地/远程已有 MySQL 作为可选方式；不能把预览当成运行成功。Power BI 现可按明确报表计划生成 PBIP 草稿，详见 [Power BI 自动生成说明](docs/PowerBI自动生成说明.md)。
+不虚构业务背景、字段、指标或结论。同名订单是否重复、金额是否需要换算等问题，应根据当前数据定义确认，不能沿用其他项目的口径。
 
-## 项目执行提示词包
+## 快速开始
 
-真正做项目时，不要从聊天记录里找提示词，而是按 `prompts/project_run/` 文件夹顺序执行：
+### 1. 准备环境
 
-1. `00_使用说明.md`
-2. `01_项目启动_数据理解与行业识别.md`
-3. `02_确认主题_生成业务框架与执行计划.md`
-4. `03_确认计划_生成SQL.md`
-5. `04_SQL报错修复.md`
-6. `05_SQL结果_QA校验.md`
-7. `06_生成Python_EDA与数据校验.md`
-8. `07_生成PowerBI方案.md`
-9. `08_生成报告_README_简历_面试稿.md`
-10. `09_项目复盘_更新母版经验.md`
-
-项目主题、指标口径和执行计划需要确认。SQL 实际执行需要用户授权目标数据库和审核过的 SQL；在授权范围内可连续执行、校验及导出，失败即停止，不自动修复重跑。其他阶段仍按阶段确认。
-
-## 标准使用方式
-
-1. 复制母版文件夹。
-2. 改成新项目名。
-3. 把原始数据放进 `data/raw/`，不要修改原始文件。
-4. 从 `prompts/project_run/01_项目启动_数据理解与行业识别.md` 开始执行。
-5. 检查 `docs/数据字典.md`、`docs/数据质量报告.md`、`docs/表关系说明.md`、`docs/行业识别报告.md`。
-6. 确认项目主题后，继续执行后续提示词。
-7. SQL 生成后，确认临时 MySQL 的执行环境，预览后使用 `--execute` 自动运行、校验、导出和清理。无需复制到 Navicat。
-8. Power BI 阶段按已审核字段和指标配置报表计划，使用 `scripts/generate_powerbi.py` 自动生成模型与基础页面，在 Desktop 刷新检查后，将实际截图保存到 `outputs/bi_screenshots/`。
-
-## SQL 自动执行：默认临时 MySQL 8.0
-
-默认在执行环境中创建临时 MySQL 8.0，自动分配连接、导入数据、执行已确认 SQL、校验并导出，然后删除临时数据库。用户无需安装或连接自己的 MySQL、无需提供数据库密码。执行环境仍需能运行 Docker，或在 Linux/Unix 中提供现成的 MySQL 8.0 mysqld 二进制；缺少运行条件时明确失败，不切换 DuckDB 或模拟执行。
+- Python 3.10+，安装本仓库依赖。
+- SQL 执行环境：已运行的 Docker 引擎，或 Linux/Unix 中准备好的官方 MySQL 8.0 `mysqld` 二进制与所需动态库。
+- 查看和验收看板：支持本仓库 PBIP/PBIR 格式的 Windows Power BI Desktop。
 
 ```powershell
 python -m pip install -r requirements.txt
-# 基于真实数据生成分层 SQL，并填写配置中的 imports/checks/exports
-python scripts/run_sql_pipeline.py            # 预览，不启动数据库
-python scripts/run_sql_pipeline.py --execute  # 实际启动临时 MySQL 并执行
 ```
 
-可先用随附的三行合成数据验证链路（不代表真实业务成果）：
+执行环境可以在云端，不一定是你的电脑。默认临时模式不需要已有 MySQL 账号和密码，也不需要复制 SQL 到 Navicat；运行器不会自动安装 Docker 或 MySQL。已有数据库可以通过 `database.mode: existing` 选择使用。
+
+### 2. 使用自己的数据
+
+复制母版，将原始文件放入 `data/raw/`，按 [项目执行说明](prompts/project_run/00_使用说明.md) 开始。先确认主题、指标和执行计划，再基于真实字段生成 SQL，并填写 `config.yaml` 的 `imports`、`checks`、`exports`。
+
+```powershell
+python scripts/run_sql_pipeline.py            # 预览，不连接数据库
+python scripts/run_sql_pipeline.py --execute  # 实际执行、校验、导出并清理
+```
+
+空母版没有业务 SQL，不能直接产生真实分析。失败时停止后续步骤，保留运行记录并尝试清理，不自动调用 AI 改写并重跑。
+
+### 3. 先跑合成数据演示
+
+仓库包含三行合成数据，用于验证链路，不代表真实经营成果。
 
 ```powershell
 python scripts/run_sql_pipeline.py --project-dir examples/sql_pipeline_demo --config config.yaml --execute
 ```
 
-每次运行在 `outputs/runs/<run_id>/` 保留：
-
-- `tables/*.csv`：配置选择的真实查询结果；全部校验与导出成功后才交付。
-- `model/fields.csv`、`model/model.json`：实际字段类型、注释、主键标识、显式外键和原始字段映射；加工逻辑见 SQL，不凭空推断字段血缘。
-- `model/schema.sql`：实际 MySQL 建表/视图定义。
-- `source/sql/`：此次使用的 SQL 原文件，保留源代码。
-- `manifest.json`：产物清单、大小及 SHA-256。
-- `run.json`：实际 MySQL 版本、校验结果、执行记录及临时环境清理状态。
-
-失败保留已保存的 SQL 与运行记录，停止交付成功结果，并尝试清理临时环境。临时数据库不是长期存储；原始数据不删除。现有本地/远程 MySQL 仍可通过 `database.mode: existing` 使用，程序不会删除该库。
-
-详细环境条件、现有数据库配置、失败处理与限制见 [SQL 自动执行说明](docs/SQL自动执行说明.md)。母版无真实业务 SQL/数据，需先完成数据理解和指标确认；空母版不会虚报成功。SQL 生成和 AI 自动修复不属于执行器本身。
-
-验证：`python -m unittest discover -s tests -v`。设置 `MYSQLD_PATH` 后还会运行真实 MySQL 8.0 原生临时环境的端到端测试；Docker 生命周期有模拟测试，容器分支尚未在当前无 Docker 环境中实测。
-
-## 主要输出
-
-- 数据字典：`docs/数据字典.md`
-- 数据质量报告：`docs/数据质量报告.md`
-- 表关系说明：`docs/表关系说明.md`
-- 行业识别报告：`docs/行业识别报告.md`
-- SQL 中文命名规范：`docs/SQL中文命名规范.md`
-- SQL 中英文命名映射表：`docs/SQL中英文命名映射表.md`
-- SQL：`sql/01_ods/`、`sql/02_dwd/`、`sql/03_ads/`、`sql/04_checks/`
-- SQL 执行入口：`scripts/run_sql_pipeline.py`
-- 执行结果：`outputs/runs/<run_id>/` 下的 `run.json`、`tables/*.csv`、`model/`、`source/` 和 `manifest.json`
-- Python 辅助检查：`scripts/data_quality_check.py`、`scripts/eda_summary.py`、`scripts/sql_result_check.py`
-- Power BI 方案：`powerbi_notes/`
-- BI 样例图：`outputs/bi_mockups/`
-- BI 实际截图：`outputs/bi_screenshots/`
-- 分析报告：`outputs/reports/数据分析报告.md`
-- 简历描述：`docs/简历项目描述.md`
-- 面试讲解稿：`docs/面试讲解稿.md`
-
-## OpenAI Images API
-
-如需自动生成 BI 样例图，需要配置环境变量：
+命令会输出本次运行目录。确认该目录 `run.json` 中 `status: passed`、`runtime.cleanup: completed`，再把下面的 `<run_id>` 替换成本次实际目录名：
 
 ```powershell
-$env:OPENAI_API_KEY="你的key"
+python scripts/generate_powerbi.py --run-dir "examples/sql_pipeline_demo/outputs/runs/<run_id>" --plan examples/sql_pipeline_demo/powerbi_design_plan.yaml --output outputs/powerbi/SqlBiDesign --data-root "D:/SqlBiDesign/data"
 ```
 
-不要把 API Key 写进代码。如果无法调用 OpenAI Images API，使用 `powerbi_notes/image_prompts.md` 中的提示词，手动复制到 ChatGPT 图片生成或其他支持 OpenAI Images API 的环境中生成。
+`--output` 必须指向尚不存在的目录。`--data-root` 是目标电脑上 **生成工程的 data 文件夹**，请按实际位置填写；它不是原始 Excel 所在目录。生成器不修改原 SQL 结果。
 
-### Power BI 设计层
+合成示例的预期值：记录数 **3**、数值合计 **60.50**；筛选 A 后为 **2 / 30.50**。
 
-已增加三套主题、原生标题与分区、概览/对比/明细布局、实际类别分布适配，以及无启动脚本交付。使用 `examples/sql_pipeline_demo/powerbi_design_plan.yaml`，详见 [设计升级说明](docs/PowerBI设计升级说明.md)。它根据已审核计划适配页面，不会凭空推断行业指标；新主题和布局仍需 Desktop 显示验证。
+## Power BI 主题和布局
+
+在报表计划 YAML 中配置设计层；表、字段、度量值和图表绑定仍需按实际业务填写：
+
+```yaml
+design:
+  palette: forest       # ocean / forest / plum
+  eyebrow: BUSINESS ANALYSIS
+  subtitle: 已确认的业务问题与口径说明
+launcher: false         # 交付中不包含启动脚本
+pages:
+  - title: 经营概览
+    layout: auto        # auto / overview / comparison / detail / manual
+    # visuals 中声明真实字段与度量值
+```
+
+`auto` 根据已配置组件选择布局，遇到较多或较长类别时可转为横向条形图。不同数据集应编制不同业务问题与报表计划；这不等于自动发现行业指标。自动布局目前针对 1920×1080，其他画布使用 `manual` 配置位置。
+
+关系仅采用明确配置的多对一单向关系，检查一端唯一、非空和多端匹配，不根据字段名猜测关联。复杂 DAX、自定义视觉、书签、钻取和导航等需要另外实现。
+
+详见 [Power BI 自动生成说明](docs/PowerBI自动生成说明.md)、[设计升级说明](docs/PowerBI设计升级说明.md) 和 [显示修复记录](docs/PowerBI显示修复记录.md)。
+
+## 打开看板与排错
+
+1. **完整解压整个工程文件夹**，再打开 `.pbip`。不要在 ZIP 内直接双击，也不要单独移动入口文件。
+2. `.pbip`、对应的 `.Report`、`.SemanticModel` 和 `data` 文件夹应保持生成时的相对位置。
+3. 若刷新提示找不到 CSV：进入 **主页 → 转换数据 → 管理参数 → DataRoot**，填写实际 `data` 文件夹完整路径。参数输入框不加引号、不含 CSV 文件名。
+4. 点击 **确定 → 关闭并应用**，检查数值、筛选、日期轴及文字显示，保存工程。
+
+若出现“循环引用”，检查查询依赖和 `DataRoot` 的 M 表达式，不要直接认定是数据金额问题。需要高级编辑器修复时，M 字符串必须带英文双引号；这与“管理参数”输入框的填写方式不同。
+
+普通计划默认可附带 `OpenReport.cmd` 与 `PrepareAndOpen.ps1`，用于设置工程内 CSV 路径后打开；设计示例采用 `launcher: false`，可以直接打开 PBIP 并管理参数。无需为此更改系统安全策略。
+
+## 结果和源码保存在哪里
+
+```text
+outputs/runs/<run_id>/
+├── tables/            # 实际 SQL 查询导出的 CSV
+├── model/
+│   ├── fields.csv     # 实际字段定义
+│   ├── model.json     # 表、字段、显式外键及来源映射
+│   └── schema.sql     # 数据库实际 DDL
+├── source/            # 本次 SQL 与输入配置快照
+├── manifest.json      # 产物清单、大小和 SHA-256
+└── run.json           # 引擎版本、执行步骤、检查与清理结果
+```
+
+临时数据库可以删除，结果、SQL、字段定义和执行报告会保留。已有数据库模式不删除目标库；MySQL DDL 有隐式提交，整条流水线不能保证整体回滚。
+
+生成的 Power BI 工程默认位于你指定的 `--output` 目录，包含模型、DAX、报表定义、CSV、计划与工程清单。真实业务数据、结果表、连接凭据和公司看板不得提交到公开仓库。
+
+## 验证范围
+
+- SQL 执行器已使用 MySQL Community Server 8.0.46 实际验证；Docker 生命周期另有模拟测试，不能据此宣称 Docker 已实测。
+- Power BI 提供模型与生成契约测试、官方 JSON Schema 检查记录及可选 Microsoft TOM 解析脚本。
+- 每个新生成工程默认 `status: draft`、`desktop_validated: false`。文件结构或模型解析通过，不代表 M 刷新、DAX 运行和页面显示通过；示例验收也不能代替新数据工程验收。
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+当前 BI 测试依赖演示运行目录 `examples/sql_pipeline_demo/outputs/runs/20261016T023517Z_e55f4886`；运行产物不随 Git 分发，全新克隆直接跑全部测试会因缺少该夹具报错。需先执行合成 SQL 演示，并将 `tests/test_powerbi.py` 中的 `RUN` 指向此次成功运行目录。真实 MySQL 集成测试还需设置 `MYSQLD_PATH`；未满足条件时会明确跳过。验证细节见 [SQL 执行验证记录](docs/SQL执行验证记录.md)。
+
+## 提示词与配套产物
+
+按 `prompts/project_run/` 的编号推进：数据理解与行业识别 → 主题和计划 → SQL → 报错修复 → QA → Python 辅助检查 → Power BI → 报告与简历 → 复盘。
+
+- 数据定义和项目说明：`docs/`
+- ODS / DWD / ADS / CHECKS SQL：`sql/`
+- Power BI 页面目标、布局、口径及讲解：`powerbi_notes/`
+- Python 诊断：`outputs/diagnostics/charts/`
+- Desktop 实际截图：`outputs/bi_screenshots/`
+- 分析报告：`outputs/reports/`
+- 简历描述与面试稿：`docs/简历项目描述.md`、`docs/面试讲解稿.md`
+
+Python 用于质量检查、辅助 EDA、SQL 执行和结果核验；最终可视化使用 Power BI。
+
+## 可选：生成设计参考图
+
+运行 SQL、生成 PBIP 和刷新随附 CSV 不需要 OpenAI API Key。只有调用 OpenAI Images API 生成 BI 布局参考图时才需要配置 `OPENAI_API_KEY`。参考图不作为精确数据来源；无法调用时使用 `powerbi_notes/image_prompts.md` 中的图片提示词。密钥只放本机环境变量，不写入代码或提交 Git。
