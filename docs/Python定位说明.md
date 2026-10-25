@@ -2,7 +2,7 @@
 
 ## 定位
 
-Python 是数据质量检查、辅助 EDA、异常识别和 SQL 结果校验工具，不是最终可视化工具。
+Python 负责数据质量检查、辅助 EDA、异常识别、已审核 SQL 的执行与结果校验，以及 Power BI 工程文件生成，不是最终可视化工具。
 
 ## Python 可以做什么
 
@@ -14,7 +14,9 @@ Python 是数据质量检查、辅助 EDA、异常识别和 SQL 结果校验工�
 - 异常值识别。
 - 描述性统计。
 - 数据质量报告生成。
+- 通过 `scripts/run_sql_pipeline.py` 自动导入、执行 SQL、校验、导出结果与建模字段并清理临时 MySQL。
 - SQL 结果辅助校验。
+- 通过 `scripts/generate_powerbi.py` 生成可编辑工程；实际刷新与可视化验收在 Desktop 中完成。
 - ADS 表导出检查。
 - 复杂字段处理建议。
 - 输出 CSV / Excel 汇总表到 `outputs/tables/`。
@@ -39,6 +41,8 @@ Python 是数据质量检查、辅助 EDA、异常识别和 SQL 结果校验工�
 - `scripts/data_quality_check.py`
 - `scripts/eda_summary.py`
 - `scripts/sql_result_check.py`
+- `scripts/run_sql_pipeline.py`
+- `scripts/generate_powerbi.py`
 
 默认报告：
 

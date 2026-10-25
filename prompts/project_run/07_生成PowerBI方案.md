@@ -33,7 +33,7 @@
 - 排序规则。
 - 数据标签规则。
 - 交互筛选规则。
-- Power BI 具体操作步骤。
+- 报表 YAML 中的真实字段、度量值和组件绑定，以及自动生成与 Desktop 验收步骤。
 - 页面讲解话术。
 - OpenAI Images API 图片生成提示词。
 
@@ -61,7 +61,7 @@
 完成后请回复我什么：请回复“BI 样例图已生成”或粘贴完整报错。
 ```
 
-如果需要用户在 Power BI 中手动搭页面，必须在每个 `page_xxx.md` 中写出字段拖放级别的步骤。
+支持的组件由生成器直接创建，不要求用户逐项拖字段或复制 DAX。仅在项目确需尚不支持的组件或交互时，在相应 `page_xxx.md` 中写出扩展步骤。图片 API 是可选布局参考，缺少 API 不阻断 PBIP 工程生成。
 
 阶段结束时必须输出：
 
@@ -73,7 +73,7 @@
 
 ## 自动生成基础工程
 
-页面说明和业务口径审核后，优先依据本次成功 SQL 运行的 CSV、model/model.json、manifest.json 配置报表 YAML，执行 `scripts/generate_powerbi.py`。详细边界见 `docs/PowerBI自动生成说明.md`。首版支持五种基础组件，不能自行虚构关系或指标。保留模型字段、DAX、报表计划、CSV 和源码，标记为草稿。原空白工程是已提供的 `templates/powerbi_blank`，无需重复要求用户创建模板。
+页面说明和业务口径审核后，依据本次成功 SQL 运行的 CSV、model/model.json、manifest.json 配置报表 YAML，执行 `scripts/generate_powerbi.py`。同时交付 YAML 与可编辑工程，不能停在文字方案。详细边界见 `docs/PowerBI自动生成说明.md`。支持 card、column、bar、line、table、slicer 六种数据组件，不能自行虚构关系或指标。保留模型字段、DAX、报表计划、CSV 和源码，标记为草稿。使用仓库内置 `templates/powerbi_blank`，无需用户另建空白模板。
 
 生成后先运行结构和引用检查，再交接 Desktop 打开、刷新、数值对账、联动检查和截图；这些实际检查完成前不得宣布报表验收成功。需要新增不支持的组件时说明手动扩展步骤。
 

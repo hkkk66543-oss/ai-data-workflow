@@ -433,7 +433,7 @@ def generate(run_dir, spec_path, output, data_root=None):
             "合成演示不能作为真实业务成果。Desktop 打开/刷新是最终验证，静态检查不能替代。\n", encoding="utf-8")
         if not spec.get("launcher",True):
             (output / "README.txt").write_text(
-                "Power BI 设计升级示例（尚未完成 Desktop 验证）\n\n" +
+                "Power BI 可编辑工程草稿（尚未完成 Desktop 验证）\n\n" +
                 "直接双击 " + project + ".pbip，不需要运行脚本。\n" +
                 "DataRoot 当前设置为：" + str(data_root or "__SET_DATA_ROOT__") + "\n" +
                 "若解压位置不同：转换数据 → 管理参数 → 将 DataRoot 改为本工程 data 文件夹的完整路径 → 关闭并应用。\n" +

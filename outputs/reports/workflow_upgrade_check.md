@@ -1,165 +1,26 @@
-# 通用 AI 数据分析工作流升级自检报告
+# 工作流使用与交付检查清单
 
-生成时间：2026-06-13
+## 项目入口
 
-## 1. 已完成项
+使用 `prompts/project_run/` 按阶段执行。通用流程保持为 Context / Data Understanding → Domain Identification → Brainstorming → Plan → Work-Plan → Execute → Test / Verify / QA → Review → Learn → Reuse。
 
-### AGENTS.md 通用化
+- 真实原始数据放入 `data/raw/`，保持原文件不变。
+- 先生成数据字典、质量报告、表关系和行业识别报告。
+- 基于真实字段提出候选主题，确认主题、业务口径及计划。
+- `domain_packs/` 提供行业思路，不能替代真实字段判断。
 
-- 已从单一行业项目规则升级为通用数据分析工作流规则。
-- 已明确“本项目不预设行业”。
-- 已要求每次分析先执行 Context / Data Understanding。
-- 已新增 Domain Identification 行业识别阶段。
-- 已明确根据字段名、表名、样例数据、业务含义判断行业或业务场景。
-- 已明确行业不清晰时输出 2-3 个候选方向并标注依据。
-- 已明确行业未确认前不允许直接套用电商指标。
-- 已保留不修改 `data/raw`、不虚构字段、不虚构数据、不虚构结论等规则。
+## 执行交付
 
-### 标准流程
+| 阶段 | 应交付内容 | 检查依据 |
+|---|---|---|
+| SQL | 各层源码、sql_pipeline 配置、结果 CSV、建模字段和实际 DDL、运行清单 | 临时 MySQL 8.0 实际执行；本次 passed 且清理 completed |
+| Python | 数据质量、EDA 与 SQL 辅助校验报告；必要的内部诊断图 | 实际字段、行数、异常与汇总勾稽 |
+| Power BI | 报表 YAML、设计记录、可编辑 PBIP、随附 CSV、模型、DAX、主题与原生组件 | 结构和引用检查、单位对账、Desktop 实际刷新与显示交互验收 |
+| 报告与展示 | 分析报告、README、简历描述和面试稿 | 每条结论能追溯 SQL、QA 或实际报表 |
+| 复盘 | 可复用方法、口径风险与规则 | 不带入其他项目的私有数据或未经证实结论 |
 
-已更新为：
+SQL 导入、执行和导出由执行器完成；Power BI 支持的组件由生成器创建。使用者负责业务确认及必要的 Desktop 验收。OpenAI 图片生成是可选布局参考。详见 [SQL 自动执行说明](../../docs/SQL自动执行说明.md)、[Power BI 自动生成说明](../../docs/PowerBI自动生成说明.md) 和 [主题与布局说明](../../docs/PowerBI设计升级说明.md)。
 
-```text
-Context / Data Understanding
--> Domain Identification
--> Brainstorming
--> Plan
--> Work-Plan
--> Execute
--> Test / Verify / QA
--> Review
--> Learn
--> Reuse
-```
+## 完成判断
 
-### domain_packs 行业适配层
-
-已创建 `domain_packs/` 文件夹。
-
-已包含以下行业模板：
-
-- `domain_packs/通用数据分析.md`
-- `domain_packs/电商分析.md`
-- `domain_packs/互联网产品分析.md`
-- `domain_packs/金融风控分析.md`
-- `domain_packs/用户增长分析.md`
-- `domain_packs/内容平台分析.md`
-- `domain_packs/教育数据分析.md`
-- `domain_packs/招聘数据分析.md`
-- `domain_packs/零售经营分析.md`
-- `domain_packs/运营分析.md`
-- `domain_packs/AB实验分析.md`
-
-每个 domain_pack 均已包含以下小节：
-
-- 适用数据特征
-- 常见表结构
-- 常见字段
-- 常见业务问题
-- 常见核心指标
-- 常见分析模块
-- 常见图表
-- SQL 建模重点
-- Power BI 看板设计重点
-- 简历项目包装方向
-- 面试讲解角度
-
-### Domain Identification 提示词
-
-`prompts/02_domain_identification.md` 已明确说明：
-
-- 如何根据文件名、表名、字段名、样例数据、表关系和业务含义判断行业。
-- 如何根据字段判断业务场景。
-- 如何避免强行套用电商模板和电商指标。
-- 行业不明确时如何输出 2-3 个候选方向。
-- 如何让用户确认最终项目主题。
-- 如何根据确认后的行业调用对应 `domain_packs/`。
-
-### README.md
-
-- 已明确说明本项目不是单一电商项目，而是一套通用 AI 数据分析工作流。
-- 已列出支持的项目类型，包括电商、互联网产品、用户增长、金融风控、A/B Test、内容平台、教育、招聘、零售经营、运营等。
-- 已说明使用方式：复制模板、放入 `data/raw`、执行数据理解、识别行业、确认项目主题、生成 SQL / Python / Power BI / 报告。
-- 已列出项目输出内容。
-
-### 通用流程文档
-
-- `docs/经验总结.md` 已更新为十阶段通用流程。
-- `docs/行业识别报告.md` 已创建。
-- `docs/项目选题建议.md` 已创建。
-- `docs/业务分析框架.md` 已改为通用分析模块模板。
-- `docs/指标口径.md` 已改为通用指标口径模板，避免默认套用 GMV、DAU、逾期率等行业专属指标。
-
-## 2. 未完成项
-
-当前升级自检未发现必须补齐的缺失项。
-
-需要注意：真实数据尚未放入 `data/raw/`，所以以下内容仍处于模板状态：
-
-- `docs/数据字典.md`
-- `docs/数据质量报告.md`
-- `docs/表关系说明.md`
-- `docs/行业识别报告.md`
-- `docs/项目选题建议.md`
-- 行业专属 SQL、Python 分析结果、图表和最终报告
-
-这些不是升级缺口，而是等待新数据集后生成的项目产物。
-
-## 3. 需要补充的文件
-
-暂无必须补充的结构性文件。
-
-后续放入新数据后，需要由工作流自动生成或更新：
-
-- `docs/行业识别报告.md`
-- `docs/项目选题建议.md`
-- `docs/业务分析框架.md`
-- `docs/指标口径.md`
-- `sql/01_ods/`
-- `sql/02_dwd/`
-- `sql/03_ads/`
-- `sql/04_checks/check_all.sql`
-- `outputs/reports/数据分析报告.md`
-- `outputs/reports/qa_report.md`
-- `outputs/reports/review_report.md`
-- `docs/简历项目描述.md`
-- `docs/面试讲解稿.md`
-
-## 4. 需要修改的规则
-
-当前无需修改核心规则。
-
-建议在真实项目执行后，根据行业识别经验补充：
-
-- 新增行业 domain_pack，如果遇到当前 11 类以外的数据集。
-- 更新 `AGENTS.md` 中的行业识别风险规则。
-- 更新 `prompts/02_domain_identification.md` 中的字段识别样例。
-
-## 5. 当前工作流是否可以正式用于新数据集
-
-结论：可以正式用于新数据集。
-
-理由：
-
-- 总控规则已通用化。
-- 标准流程已加入 Domain Identification。
-- 行业适配层已创建并覆盖 11 类常见分析场景。
-- 行业识别提示词已明确防止强行套用电商指标。
-- README 已说明这是通用工作流。
-- 核心输出目录和模板文件完整。
-
-## 6. 如果不能正式使用，请自动补齐缺失内容
-
-本次自检结论为“可以正式使用”，未发现阻塞性缺失内容，因此无需自动补齐。
-
-下一步使用方式：
-
-```text
-请按照 prompts/00_master_prompt.md 执行本项目的通用 AI 数据分析工作流。先从 Context / Data Understanding 开始，扫描 data/raw，不要修改原始数据；然后执行 Domain Identification，输出行业识别报告，并等我确认项目主题后再继续。
-```
-
-行业识别完成后，用户应按以下格式确认项目主题：
-
-```text
-我确认选择「项目主题名称」，请基于该主题继续执行 Plan -> Work-Plan -> Execute -> Test / Verify / QA -> Review -> Learn -> Reuse。
-```
+没有真实数据时，数据字典、SQL 和报告等仍为模板。缺少执行环境、业务证据或 Desktop 实际检查时，如实标注待完成项，不预先写“通过”。每份工程独立记录验收状态，历史示例测试不代表新数据集通过。

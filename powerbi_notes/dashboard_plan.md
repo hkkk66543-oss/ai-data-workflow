@@ -9,6 +9,7 @@
 - 页面设计必须基于真实 ADS 表、真实字段和已确认指标口径。
 - 不允许套用电商模板。
 - 不允许使用当前数据不存在的字段。
+- 读取 [报表设计 Skill](../.agents/skills/powerbi-report-design/SKILL.md)，按数据分布选择主题、颜色角色、单位和布局。
 
 ## 每页必须输出
 
@@ -23,10 +24,18 @@
 - 排序规则。
 - 数据标签规则。
 - 交互筛选规则。
-- Power BI 具体操作步骤。
+- 报表 YAML 中的表、字段、度量值及组件绑定。
+- 自动生成入口、工程位置与 Desktop 验收步骤。
 - 页面讲解话术。
 - OpenAI Images API 图片生成提示词。
 
-## 需要用户手动操作
+## 自动生成与交付
 
-Power BI Desktop 页面需要用户手动搭建。真实项目中必须在每个 `page_xxx.md` 中写明字段拖放级别的步骤，并提醒用户截图保存到 `outputs/bi_screenshots/`。
+1. 从本次成功 SQL 运行目录读取 CSV、字段元数据、`manifest.json` 和 `run.json`；临时模式确认实例清理完成。
+2. 按已确认口径编制报表 YAML，使用 `scripts/generate_powerbi.py` 生成可编辑 PBIP 工程，包括数据接入、模型、支持的 DAX、主题和原生组件。
+3. 支持指标卡、竖向柱状图、横向条形图、折线图、明细表和筛选器。页面随业务问题和数据变化；布局、颜色和单位配置见 [主题与布局说明](../docs/PowerBI设计升级说明.md)。
+4. 保留 `design_brief.md`、`design_tokens.yaml`、`design_review.md` 和各页说明；可执行配置须写入报表 YAML。
+
+## Desktop 验收
+
+打开生成工程、刷新，核对数值、文字、日期、单位和筛选联动，保存截图到 `outputs/bi_screenshots/`。支持的组件由生成器创建，无需逐个拖字段或复制 DAX。仅遇到尚不支持的组件或交互时，在对应 `page_xxx.md` 中交接扩展步骤。实际检查前保持 `desktop_validated: false`。完整步骤见 [自动生成说明](../docs/PowerBI自动生成说明.md)。

@@ -96,12 +96,14 @@ SQL 生成完成后，必须说明：
 
 1. Power BI 是最终可视化工具。
 2. Power BI 页面必须基于当前行业、真实字段、真实 ADS 表和明确业务问题设计。
-3. 每页必须包含页面名称、业务目标、布局、指标卡、图表类型、使用表、使用字段、筛选器、排序、数据标签、交互规则、具体操作步骤和讲解话术。
+3. 每页必须记录页面名称、业务目标、布局、实际使用的组件、表和字段、指标口径、排序、标签、交互规则、报表 YAML 绑定、生成与验收步骤和讲解话术。没有必要的组件应省略。
 4. 每页必须生成一个 OpenAI Images API 图片提示词。
 5. 不允许用 Python、matplotlib、seaborn 生成 BI 样例图。
 6. BI 样例图用于布局参考，不作为精确数据来源。
 7. 精确指标数值必须写在 `powerbi_notes/page_xxx.md` 中。
 8. 如果 OpenAI Images API 无法调用，必须生成 `powerbi_notes/image_prompts.md` 并提醒用户手动复制提示词生成图片。
+9. 根据已审核报表 YAML 使用 `scripts/generate_powerbi.py` 自动生成数据接入、模型、支持的 DAX、主题和原生组件；不得把 Navicat 运行、手动导入导出、复制 DAX 或逐项拖字段写成默认必经步骤。仅在本项目确需尚不支持的组件或交互时交接扩展步骤。
+10. 样例图不作为 PBIP 生成的前置依赖；缺少图片 API 不阻断真实数据工程生成。
 
 ### 报表设计 Skill 与持久设计规则
 
@@ -132,7 +134,7 @@ Power BI 方案、主题或页面制作前，读取 `.agents/skills/powerbi-repo
 ## SQL 自动执行规则
 
 - 数据理解、行业、项目主题、指标口径与执行计划仍须先确认。
-- 在生成真实 SQL 时，同时配置 imports/checks/exports。默认 database.mode: temporary，在执行环境自动创建实例和凭据，用户不需要提供已有数据库信息；仅 existing 模式从本机环境变量取密码。真实数据、凭据及运行目录不得提交到 Git。
+- 在生成真实 SQL 时，同时配置 `sql_pipeline.imports/checks/exports`。默认 database.mode: temporary，在执行环境自动创建实例和凭据，用户不需要提供已有数据库信息；仅 existing 模式从本机环境变量取密码。真实数据、凭据及运行目录不得提交到 Git。
 - 使用 `scripts/run_sql_pipeline.py` 先预览；预览不连接数据库，不能称为 SQL 已执行或业务校验通过。
 - 用户确认项目及已审核 SQL 后，可用 `--execute` 在临时 MySQL 8.0 中连续执行 ODS、导入、DWD、ADS、校验、导出、建模元数据提取和清理；不要求用户逐层复制或反馈。必须保存 SQL 源码、结果表、字段定义、实际表结构和执行/清理记录。
 - 失败即停，不自动用大模型修改并重跑，不从部分完成处盲目续跑。MySQL DDL 有隐式提交，禁止宣称整条流水线能够回滚。

@@ -23,3 +23,5 @@
 
 - `outputs/reports/qa_report.md`
 - `sql/04_checks/check_all.sql`
+
+SQL 校验读取本次流水线 `run.json`，核实 passed、真实 MySQL 版本、校验条件和临时清理 completed；检查 CSV、模型字段、DDL、源码与清单。Power BI 检查实际字段绑定、单位缩放及 SQL 对账，在 Desktop 实际打开、刷新和检查交互后记录验收结果，不能用预览或静态检查替代。

@@ -44,10 +44,10 @@ SQL 生成后必须说明：
 SQL 自动执行交付：
 
 1. 阅读 `docs/SQL自动执行说明.md`。
-2. 根据真实原始数据、ODS 字段、业务口径，填写配置的 imports/checks/exports，默认 database.mode: temporary；无需用户数据库账号。仅自选 existing 时配置连接，不写入密码。
+2. 根据真实原始数据、ODS 字段、业务口径，填写配置的 `sql_pipeline.imports/checks/exports`，默认 database.mode: temporary；无需用户数据库账号。仅自选 existing 时配置连接，不写入密码。
 3. 校验查询放 `sql/04_checks/`，必须配置 zero_rows 或 scalar_equals；导出查询建议放 `sql/exports/`，只包含一条 SELECT。
-4. 运行 `python scripts/run_sql_pipeline.py` 检查计划；没有真实 SQL 或校验时应失败，不能将母版注释当作已执行。
-5. 用户已确认项目与 SQL、且执行环境支持临时 MySQL 时，运行 `python scripts/run_sql_pipeline.py --execute`；顺序为 ODS → 导入 → DWD → ADS → 校验 → 导出。
+4. 明确配置路径（真实项目建议 `config.local.yaml`），运行 `python scripts/run_sql_pipeline.py --config config.local.yaml` 检查计划；没有真实 SQL 或校验时应失败，不能将母版注释当作已执行。
+5. 用户已确认项目与 SQL、且执行环境支持临时 MySQL 时，运行 `python scripts/run_sql_pipeline.py --config config.local.yaml --execute`；顺序为 ODS → 导入 → DWD → ADS → 校验 → 导出。
 6. 读取本次 run.json，报告真实 MySQL 版本与清理状态；失败按文件及语句序号排错，不自动重跑。结果在 tables/、建模字段/DDL 在 model/、SQL 源码在 source/sql/。
 7. 执行环境不支持临时 MySQL 或尚无执行授权时，说明缺少条件；不默认要求连接用户本机、不要求提供密码。existing 模式仅在用户选择时使用。
 

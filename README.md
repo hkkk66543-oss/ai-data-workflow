@@ -11,11 +11,11 @@
 
 ## 工作流说明
 
-SQL 默认使用简约中文表名和中文字段名，提升 Navicat、Power BI 和报告阅读体验。MySQL 中文标识符必须使用反引号，例如 `应用_每日概览`、`用户编号`、`事件数`。
+SQL 默认使用简约中文表名和中文字段名，提升 SQL、Power BI 和报告阅读体验。MySQL 中文标识符必须使用反引号，例如 `应用_每日概览`、`用户编号`、`事件数`。
 
 Python 负责数据质量检查、辅助 EDA、异常识别、SQL 执行、结果辅助校验和导出检查。诊断图如确需生成，只能保存到 `outputs/diagnostics/charts/`，且不作为 README 或报告核心展示图。
 
-Power BI 是最终可视化工具。Power BI 部分会基于真实 ADS 表和真实字段生成详细页面方案、DAX、页面操作说明和讲解话术。BI 样例图由 OpenAI Images API 或图片提示词生成，输出到 `outputs/bi_mockups/`。
+Power BI 是最终可视化工具。Power BI 部分基于真实 ADS 表和真实字段生成页面方案与报表 YAML，自动输出包含数据接入、模型、支持的 DAX、主题和原生图表的可编辑 PBIP 工程，并保留口径说明和讲解话术。BI 样例图由 OpenAI Images API 或图片提示词生成，输出到 `outputs/bi_mockups/`。
 
 当流程需要用户在外部软件中手动操作时，Codex 必须主动停止并用固定格式说明操作目标、原因、步骤、预期结果、报错处理和完成后应回复的内容。
 
@@ -61,7 +61,9 @@ Power BI 阶段使用项目内置的 [报表设计 Skill](.agents/skills/powerbi
 - SQL 中英文命名映射表：`docs/SQL中英文命名映射表.md`
 - SQL：`sql/01_ods/`、`sql/02_dwd/`、`sql/03_ads/`、`sql/04_checks/`
 - Python 辅助检查：`scripts/data_quality_check.py`、`scripts/eda_summary.py`、`scripts/sql_result_check.py`
-- Power BI 方案：`powerbi_notes/`
+- SQL 结果与建模字段：`outputs/runs/<run_id>/tables/`、`model/`、`source/` 和运行清单
+- Power BI 方案、报表 YAML 与设计说明：`powerbi_notes/`
+- Power BI 可编辑工程：`outputs/powerbi/<工程名>/`，包含随附 CSV、模型和页面
 - BI 样例图：`outputs/bi_mockups/`
 - BI 实际截图：`outputs/bi_screenshots/`
 - 分析报告：`outputs/reports/数据分析报告.md`
@@ -70,7 +72,7 @@ Power BI 阶段使用项目内置的 [报表设计 Skill](.agents/skills/powerbi
 
 ## OpenAI Images API
 
-如需自动生成 BI 样例图，需要配置环境变量：
+BI 样例图用于布局参考，不是生成可编辑工程的前置条件。如需生成样例图，配置环境变量：
 
 ```powershell
 $env:OPENAI_API_KEY="你的key"

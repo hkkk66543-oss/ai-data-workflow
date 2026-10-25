@@ -9,6 +9,9 @@
 - 如果字段来自中文 SQL 表名或中文视图，DAX 必须使用对应中文字段。
 - 不在行业未确认前创建 GMV、DAU、逾期率、完课率、Offer 率等行业专属 DAX。
 - 不允许引用不存在的字段。
+- 支持的聚合指标写入报表 YAML 的 `measures`，由生成器写入 TMDL；本文用于口径、公式与对账记录，无需逐项复制到 Desktop。
+- 当前支持 countrows、sum、average、min、max、distinctcount；复杂 DAX 须审核并扩展实现，不能只写公式就宣称已接入。
+- 展示单位使用 `display_unit`（元、千、万、亿）与普通数值 `format`，保留数值型 DAX；币种和汇率按已确认口径在 SQL 中处理。
 
 ## 占位模板
 

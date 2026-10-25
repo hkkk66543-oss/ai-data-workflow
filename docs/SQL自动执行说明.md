@@ -37,7 +37,9 @@ python scripts/run_sql_pipeline.py
 python scripts/run_sql_pipeline.py --execute
 ```
 
-默认配置是 `config.example.yaml`。真实项目应根据已经确认的数据字典生成各层 SQL，并明确填写 imports/checks/exports；可复制为忽略提交的 `config.local.yaml`，通过 `--config config.local.yaml` 使用。空母版预览会失败，不会把没有执行的数据当成真实结果。
+以下 imports/checks/exports 示例分别展示 `sql_pipeline` 的子项；填写实际配置时合并在同一个 `sql_pipeline` 下，避免重复定义顶层键。
+
+默认配置是 `config.example.yaml`。真实项目应根据已经确认的数据字典生成各层 SQL，并明确填写 `sql_pipeline.imports/checks/exports`；可复制为忽略提交的 `config.local.yaml`，通过 `--config config.local.yaml` 使用。空母版预览会失败，不会把没有执行的数据当成真实结果。
 
 预览只检查文件和计划，不启动容器/进程、不连接数据库、不检查实际 SQL 语法或数据内容。实际执行须使用 `--execute`，并审核目标项目、SQL 和输入文件。
 
@@ -100,15 +102,16 @@ Remove-Item Env:MYSQL_PASSWORD
 先由审核过的 ODS SQL 明确字段类型，再导入数据；程序不擅自决定主键、金额类型或时间含义。
 
 ```yaml
-imports:
-  - file: data/raw/your_data.csv
-    table: 原始_数据表
-    encoding: utf-8-sig
-    delimiter: ','
-    null_values: ['']
-    columns:
-      source_id: 记录编号
-      source_value: 指标值
+sql_pipeline:
+  imports:
+    - file: data/raw/your_data.csv
+      table: 原始_数据表
+      encoding: utf-8-sig
+      delimiter: ','
+      null_values: ['']
+      columns:
+        source_id: 记录编号
+        source_value: 指标值
 ```
 
 - CSV 分块读取并使用参数化 INSERT，XLSX 和 JSON 整文件读入内存。JSON 必须为对象组成的数组，不支持嵌套字段。
@@ -122,14 +125,15 @@ imports:
 `checks` 只执行明确配置的查询；不会把 `sql/04_checks/` 下任意查询的成功运行当作业务通过。`check_all.sql` 当前是注释模板，不能替代真实业务校验。
 
 ```yaml
-checks:
-  - name: 主键重复检查
-    sql_file: sql/04_checks/01_unique.sql
-    expect: zero_rows
-  - name: 汇总差额检查
-    sql_file: sql/04_checks/02_reconcile.sql
-    expect: scalar_equals
-    value: 0
+sql_pipeline:
+  checks:
+    - name: 主键重复检查
+      sql_file: sql/04_checks/01_unique.sql
+      expect: zero_rows
+    - name: 汇总差额检查
+      sql_file: sql/04_checks/02_reconcile.sql
+      expect: scalar_equals
+      value: 0
 ```
 
 - `zero_rows`：查询列出异常记录，返回零行才通过。
@@ -142,9 +146,10 @@ checks:
 ## 导出与运行结果
 
 ```yaml
-exports:
-  - name: 应用_概览
-    sql_file: sql/exports/overview.sql
+sql_pipeline:
+  exports:
+    - name: 应用_概览
+      sql_file: sql/exports/overview.sql
 ```
 
 每次运行独立输出 `outputs/runs/<UTC时间_随机编号>/`：
@@ -158,7 +163,7 @@ exports:
 - `model/schema.sql`：实际 SHOW CREATE TABLE/VIEW 定义。视图含服务器定义信息，复杂视图依赖和 DEFINER 等恢复条件仍需检查，不保证跨环境直接恢复。
 - `manifest.json`：源代码、模型和结果产物的文件路径、字节数及 SHA-256。
 
-状态 `preview_only` 不等于执行成功；仅 `passed` 代表这次执行完整通过。临时模式还需检查 runtime.cleanup 为 completed。失败退出码为 1，成功/预览退出码为 0。每次路径不同，不自动更新 Power BI 数据源；BI 自动刷新不在本次范围。
+状态 `preview_only` 不等于执行成功；仅 `passed` 代表这次执行完整通过。临时模式还需检查 runtime.cleanup 为 completed。失败退出码为 1，成功/预览退出码为 0。本次通过校验的目录可交给 `scripts/generate_powerbi.py` 自动生成数据接入、模型及报表，见 [Power BI 自动生成说明](PowerBI自动生成说明.md)。SQL 执行器本身不更新既有 PBIP 的数据源，也不执行 Desktop 刷新。
 
 运行报告不写数据库密码、完整 SQL、异常行或驱动原始错误文本。数据库错误通过错误类型、MySQL errno/sqlstate、最后一个步骤的文件与语句序号定位；结合 SQL 文件在本地排查。运行目录已加入 `.gitignore`。
 
