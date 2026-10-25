@@ -8,7 +8,8 @@ import unittest
 import yaml
 from scripts.powerbi_design import prepare, audit
 from scripts.generate_powerbi import generate, BIError
-from test_powerbi import ROOT, RUN
+from test_powerbi import ROOT
+from powerbi_fixture import create_run
 
 
 class DesignTests(unittest.TestCase):
@@ -16,6 +17,7 @@ class DesignTests(unittest.TestCase):
         self.plan=yaml.safe_load((ROOT/'examples/sql_pipeline_demo/powerbi_design_plan.yaml').read_text())
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name)
+        self.run=create_run(self.root/'run')
 
     def test_design_does_not_change_original_or_data_bindings(self):
         before=deepcopy(self.plan)
@@ -60,12 +62,12 @@ class DesignTests(unittest.TestCase):
     def test_unsupported_theme_fails_before_output(self):
         self.plan['design']['palette']='unknown'
         p=self.root/'plan.yaml';p.write_text(yaml.safe_dump(self.plan,allow_unicode=True))
-        with self.assertRaises(BIError):generate(RUN,p,self.root/'output')
+        with self.assertRaises(BIError):generate(self.run,p,self.root/'output')
         self.assertFalse((self.root/'output').exists())
 
     def test_project_has_theme_native_text_and_no_launcher(self):
         path=self.root/'plan.yaml';path.write_text(yaml.safe_dump(self.plan,allow_unicode=True))
-        out=self.root/'project';manifest=generate(RUN,path,out,'D:/Example/data')
+        out=self.root/'project';manifest=generate(self.run,path,out,'D:/Example/data')
         self.assertFalse(manifest['desktop_validated'])
         self.assertFalse(list(out.rglob('*.cmd')))
         self.assertFalse(list(out.rglob('*.ps1')))
@@ -80,7 +82,7 @@ class DesignTests(unittest.TestCase):
     def test_display_regressions_have_native_properties_and_room(self):
         import json
         path=self.root/'plan.yaml';path.write_text(yaml.safe_dump(self.plan,allow_unicode=True))
-        out=self.root/'project';generate(RUN,path,out)
+        out=self.root/'project';generate(self.run,path,out)
         visuals=[json.loads(p.read_text()) for p in out.rglob('visual.json')]
         by_type={v['visual']['visualType']:v for v in visuals}
         slicer=by_type['slicer']['visual']
@@ -97,7 +99,7 @@ class DesignTests(unittest.TestCase):
         import json
         self.plan['tables'][0]['column_types']={'记录日期':'datetime'}
         path=self.root/'plan.yaml';path.write_text(yaml.safe_dump(self.plan,allow_unicode=True))
-        out=self.root/'project';generate(RUN,path,out)
+        out=self.root/'project';generate(self.run,path,out)
         line=next(json.loads(p.read_text())['visual'] for p in out.rglob('visual.json') if json.loads(p.read_text())['visual']['visualType']=='lineChart')
         self.assertNotIn('axisType',line['objects']['categoryAxis'][0]['properties'])
 
@@ -109,6 +111,43 @@ class DesignTests(unittest.TestCase):
             self.assertGreaterEqual(table['position'][3],288)
             for chart in (v for v in page['visuals'] if v['type'] in {'line','bar','column'}):
                 self.assertGreaterEqual(chart['position'][3],240)
+
+    def test_semantic_colors_are_materialized_and_overrides_do_not_leak(self):
+        import json
+        self.plan['design']['colors']={'canvas':'#E8EEF6'}
+        self.plan['pages'][0]['visuals'][0]['role']='negative'
+        self.plan['pages'][0]['visuals'][1]['fill']='#FFF3DF'
+        path=self.root/'plan.yaml';path.write_text(yaml.safe_dump(self.plan,allow_unicode=True))
+        out=self.root/'project';generate(self.run,path,out)
+        cards=[json.loads(p.read_text())['visual'] for p in out.rglob('visual.json') if json.loads(p.read_text())['visual']['visualType']=='card']
+        fills={v['visualContainerObjects']['background'][0]['properties']['color']['solid']['color']['expr']['Literal']['Value'] for v in cards}
+        self.assertEqual(fills,{"'#FBECE9'","'#FFF3DF'"})
+        negative=next(v for v in cards if v['visualContainerObjects']['background'][0]['properties']['color']['solid']['color']['expr']['Literal']['Value']=="'#FBECE9'")
+        self.assertEqual(negative['objects']['labels'][0]['properties']['color']['solid']['color']['expr']['Literal']['Value'],"'#C34C42'")
+        baseline=yaml.safe_load((ROOT/'examples/sql_pipeline_demo/powerbi_design_plan.yaml').read_text())
+        _,palette=prepare(baseline)
+        self.assertNotEqual(palette['negative_tint'],'#FFF3DF')
+
+    def test_invalid_color_cannot_silently_fall_back_to_white(self):
+        self.plan['pages'][0]['visuals'][0]['fill']='blue'
+        with self.assertRaisesRegex(ValueError,'RRGGBB'):prepare(self.plan)
+        self.plan['pages'][0]['visuals'][0]['fill']='#FFFFFF'
+        self.plan['design']['colors']={'not_a_role':'#FFFFFF'}
+        with self.assertRaisesRegex(ValueError,'颜色角色'):prepare(self.plan)
+
+    def test_line_labels_are_sparse_and_ranking_sorts_by_value(self):
+        import json
+        column=next(v for v in self.plan['pages'][0]['visuals'] if v['type']=='column')
+        column['sort_by']='measure'
+        path=self.root/'plan.yaml';path.write_text(yaml.safe_dump(self.plan,allow_unicode=True))
+        out=self.root/'project';generate(self.run,path,out)
+        visuals=[json.loads(p.read_text())['visual'] for p in out.rglob('visual.json')]
+        line=next(v for v in visuals if v['visualType']=='lineChart')
+        self.assertEqual(line['objects']['labels'][0]['properties']['show']['expr']['Literal']['Value'],'false')
+        bar=next(v for v in visuals if v['visualType']=='clusteredColumnChart')
+        order=bar['query']['sortDefinition']['sort'][0]
+        self.assertIn('Measure',order['field'])
+        self.assertEqual(order['direction'],'Descending')
 
 
 if __name__=='__main__':unittest.main()

@@ -12,9 +12,9 @@ import unittest
 
 import yaml
 from scripts.generate_powerbi import BIError, generate, validate_value
+from powerbi_fixture import create_run
 
 ROOT = Path(__file__).resolve().parents[1]
-RUN = ROOT / 'examples/sql_pipeline_demo/outputs/runs/20261016T023517Z_e55f4886'
 
 
 class PowerBITests(unittest.TestCase):
@@ -23,7 +23,7 @@ class PowerBITests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.run = self.root / 'run'
-        shutil.copytree(RUN, self.run)
+        create_run(self.run)
         self.plan = yaml.safe_load((ROOT / 'examples/sql_pipeline_demo/powerbi_plan.yaml').read_text())
         self.plan_path = self.root / 'plan.yaml'
         self.output = self.root / '中文 sample'
@@ -103,6 +103,23 @@ class PowerBITests(unittest.TestCase):
         self.plan['tables'].append({**copy.deepcopy(self.plan['tables'][0]), 'name': '维度'})
         self.plan['relationships'] = [{'from': {'table':'清洗明细','column':'类别'}, 'to': {'table':'维度','column':'类别'}}]
         with self.assertRaisesRegex(BIError, '唯一'): self.build()
+
+    def test_display_unit_scales_numeric_measure_and_retains_source(self):
+        self.plan['measures'][1]['display_unit']='万'
+        original=(self.run/'tables/清洗明细.csv').read_bytes()
+        self.build()
+        tmdl=next(self.output.rglob('table_001.tmdl')).read_text()
+        self.assertIn("DIVIDE(SUM('清洗明细'[数值]), 10000)",tmdl)
+        self.assertIn('formatString: #,0.00" 万"',tmdl)
+        self.assertNotIn('FORMAT(',tmdl)
+        self.assertEqual((self.output/'data/清洗明细.csv').read_bytes(),original)
+
+    def test_unit_scaling_rejects_percent_or_unknown_unit(self):
+        for unit,fmt in [('万','0.00%'),('百万','#,0.00'),(['万'],'#,0.00')]:
+            with self.subTest(unit=unit,fmt=fmt):
+                self.plan['measures'][1].update(display_unit=unit,format=fmt)
+                with self.assertRaisesRegex(BIError,'display_unit'):self.build()
+                self.assertFalse(self.output.exists())
 
     @unittest.skipUnless(os.environ.get('POWERSHELL_BIN'), 'Portable PowerShell optional')
     def test_launcher_prepares_unicode_path_and_is_idempotent(self):

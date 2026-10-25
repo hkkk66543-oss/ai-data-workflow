@@ -49,6 +49,8 @@ Power BI 是最终可视化工具。Power BI 部分会基于真实 ADS 表和真
 
 自动化的环境条件与配置细节见 [SQL 自动执行说明](docs/SQL自动执行说明.md)、[Power BI 自动生成说明](docs/PowerBI自动生成说明.md) 和 [Power BI 主题与布局说明](docs/PowerBI设计升级说明.md)。执行器需可用的 MySQL 8.0 环境；生成的看板需在 Desktop 中刷新验收。
 
+Power BI 阶段使用项目内置的 [报表设计 Skill](.agents/skills/powerbi-report-design/SKILL.md)：根据真实业务与数据选择页面和图表，统一颜色层次、文字与数值表达。默认不放装饰性侧栏，支持浅色分区、语义强调色以及 `6,360.20 万` 形式的数值单位；不同项目不套同一张固定看板。设计规则同时由第 07 阶段提示词和总控规则引用。
+
 ## 主要输出
 
 - 数据字典：`docs/数据字典.md`

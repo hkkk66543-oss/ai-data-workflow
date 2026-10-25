@@ -1,5 +1,34 @@
 # Power BI 设计升级
 
+## 持久设计规则与配置
+
+项目内置 [.agents/skills/powerbi-report-design/SKILL.md](../.agents/skills/powerbi-report-design/SKILL.md)，由 `AGENTS.md` 和第 07 阶段提示词引用。每个新数据集先形成设计简报，再选择页数、图表、布局与颜色；不复制历史测试集，不固定四卡两图一表。
+
+默认不放装饰性侧栏，优先保留分析面积；区分画布、内容表面和浅色分区，不再只有近白画布与全白组件。内置 palette 提供协调起点，支持如下显式配置：
+
+```yaml
+design:
+  palette: ocean
+  colors:
+    canvas: '#E8EEF6'
+    tint: '#EAF1FF'
+    secondary_tint: '#FFF3DF'
+```
+
+`design.colors` 仅接受 palette 已有颜色角色，均使用 `#RRGGBB`。组件的 `role` 支持 primary、secondary、positive、negative、neutral，选择前须确定业务含义；`fill`、`color` 覆盖组件底色与主色。表格默认中性表面；卡片和分析图默认浅主色底，可用 secondary 等角色拉开层次。这些属性会写入原生视觉对象，不仅依赖主题继承。折线图默认关闭逐点数据标签，组件 `show_labels` 可覆盖；条形等图表的 `sort_by: measure` 按度量值降序排列。
+
+金额卡片将单位放在数值后。度量值增加 `display_unit: 万` 时，生成器对真实聚合结果除以 10000，保留数值型 DAX，并把普通 `format: '#,0.00'` 写成 `#,0.00" 万"`。支持元、千、万、亿；不执行币种换算，百分比不得使用此配置。标题使用“收入”等指标名，不重复“/万元”。图表和明细需要不同单位时使用各自的数值型展示度量值，原始数据与金额资格口径不变。
+
+颜色角色是组件级样式，不是按每个数据点自动判断正负的条件格式。Top N、正负条件色、连续时间轴与复杂交互仍须按实际支持情况配置、扩展或交接，不能仅凭效果图宣称实现。详细的按数据选择规则、对账和截图检查见 Skill；`powerbi_notes/design_tokens.yaml` 是设计记录，生成器只读取显式报表 YAML。
+
+规则蒸馏参考 Anthropic frontend-design、UI UX Pro Max 与 Microsoft Fabric Skills 的设计方法，出处见 [颜色与单位参考](../.agents/skills/powerbi-report-design/references/color-and-units.md)。不要求运行时访问这些资源，不复制其品牌和业务数据。下文既有布局容量与 Desktop 验收边界继续适用。
+
+## 本次验证范围
+
+Power BI 专项单元测试共 28 项，27 项通过、1 项可选环境检查跳过；Skill 元数据验证通过。使用合成单元测试输入生成的 17 个报表定义通过官方 JSON Schema 检查，未发现几何越界或重叠。测试数据明确标注为合成输入，不作为真实 SQL 执行证据。
+
+新默认颜色与单位设置仍需在目标 Power BI Desktop 中打开、刷新并检查实际显示，生成交付继续保持 `desktop_validated: false`。完整测试另有 4 项 SQL 测试失败，在未修改的 Gitee 基线中同样复现；另有 2 项因本机缺少 MySQL Connector 无法执行，均未作为本次已通过的检查。
+
 ## 已实现
 
 设计层与 SQL/模型分离，原始数据和计算口径不因换主题而改变。`scripts/powerbi_design.py` 是原创实现，仅参考外部设计原则；不依赖外部安装器、CLI、自定义视觉或在线资源。

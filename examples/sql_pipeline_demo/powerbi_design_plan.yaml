@@ -26,6 +26,7 @@ pages:
   - type: card
     title: 记录数（合成）
     measure: 记录数
+    role: positive
     position:
     - 40
     - 40
@@ -34,6 +35,7 @@ pages:
   - type: card
     title: 数值合计（合成）
     measure: 数值合计
+    role: primary
     position:
     - 640
     - 40
@@ -50,6 +52,8 @@ pages:
     - 160
   - type: column
     title: 各类别数值合计
+    role: secondary
+    sort_by: measure
     table: 清洗明细
     column: 类别
     measure: 数值合计
@@ -84,5 +88,7 @@ pages:
   layout: auto
 design:
   palette: ocean
+  colors:
+    canvas: '#E8EEF6'
   eyebrow: SQL / POWER BI · DESIGN DEMO
   subtitle: 三行合成数据 · 验证可编辑设计与筛选联动，不作为真实业务结论

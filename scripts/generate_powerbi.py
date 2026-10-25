@@ -184,7 +184,17 @@ def load_inputs(run_dir, spec_path):
             expression = f"{aggregation.upper()}({dax_column(table, col['name'])})"
         else:
             raise BIError("首版仅支持 countrows/sum/average/min/max/distinctcount。")
-        measures[name] = {**item, "expression": expression}
+        display_unit=item.get('display_unit')
+        fmt=item.get('format','#,0.00')
+        if display_unit is not None:
+            factors={'元':1,'千':1000,'万':10000,'亿':100000000}
+            if not isinstance(display_unit,str) or display_unit not in factors or not isinstance(fmt,str) or not re.fullmatch(r'[#0,]+(?:\.0+)?',fmt):
+                raise BIError('display_unit 请选择 元、千、万、亿，并配合不含单位的普通数值 format。')
+            if aggregation in {'min','max'} and col['type'] not in {'int64','decimal','double'}:
+                raise BIError('单位缩放只支持数值结果。')
+            if factors[display_unit]!=1:expression=f'DIVIDE({expression}, {factors[display_unit]})'
+            fmt+='" '+display_unit+'"'
+        measures[name] = {**item, "expression": expression,"format":fmt}
     # Relationships are never inferred from names. Validate declared cardinality
     # and keys against actual CSVs before writing the model.
     for rel in spec.get("relationships", []):
@@ -289,7 +299,8 @@ def visual_definition(item, tables, measures, index, page):
         raise BIError("图表位置超出页面或尺寸无效。")
     query = {"queryState": roles}
     if kind in {'column','bar','line'}:
-        query['sortDefinition'] = {'sort': [{'field': roles['Category']['projections'][0]['field'], 'direction': 'Ascending'}], 'isDefaultSort': True}
+        sort_metric=item.get('sort_by')=='measure'
+        query['sortDefinition'] = {'sort': [{'field': roles['Y' if sort_metric else 'Category']['projections'][0]['field'], 'direction': 'Descending' if sort_metric else 'Ascending'}], 'isDefaultSort': not sort_metric}
     containers = {"title": [{"properties": {"show": {"expr": {"Literal": {"Value": "true"}}}, "text": literal(item.get("title", kind))}}]}
     objects = {}
     # Materialize critical formatting as native visual properties rather than
@@ -301,6 +312,8 @@ def visual_definition(item, tables, measures, index, page):
         containers["title"][0]["properties"]["fontSize"] = number(16)
         containers['subTitle']=[{'properties':{'show':boolean(False)}}]
         containers['padding']=[{'properties':{edge:number(12) for edge in ['top','bottom','left','right']}}]
+        fill=lambda value:{'solid':{'color':literal(value)}}
+        containers['background']=[{'properties':{'show':boolean(True),'color':fill(item['fill']),'transparency':number(0)}}]
         if kind=='slicer':
             objects={'data':[{'properties':{'mode':literal('Dropdown')}}],
                      'header':[{'properties':{'show':boolean(False)}}],
@@ -310,12 +323,15 @@ def visual_definition(item, tables, measures, index, page):
                      'values':[{'properties':{'fontSize':number(14)}}],
                      'grid':[{'properties':{'rowPadding':number(4)}}]}
         elif kind=='card':
-            objects={'labels':[{'properties':{'fontSize':number(40)}}],
+            label_props={'fontSize':number(36),'color':fill(item['color'])}
+            if metric.get('display_unit') is not None:label_props['labelDisplayUnits']=number(1)
+            objects={'labels':[{'properties':label_props}],
                      'categoryLabels':[{'properties':{'show':boolean(False)}}]}
         elif kind in {'column','bar','line'}:
-            objects={'labels':[{'properties':{'show':boolean(True),'fontSize':number(14)}}],
+            objects={'labels':[{'properties':{'show':boolean(item.get('show_labels',kind!='line')),'fontSize':number(14)}}],
                      'categoryAxis':[{'properties':{'fontSize':number(14),'showAxisTitle':boolean(False)}}],
-                     'valueAxis':[{'properties':{'fontSize':number(12),'showAxisTitle':boolean(False)}}]}
+                     'valueAxis':[{'properties':{'fontSize':number(12),'showAxisTitle':boolean(False)}}],
+                     'dataPoint':[{'properties':{'defaultColor':fill(item['color'])}}]}
     if kind in {'column','line'} and column_kind=='date':
         objects.setdefault('categoryAxis',[{'properties':{}}])[0]['properties']['axisType']=literal('Categorical')
     visual = {"visualType": {"card": "card", "column": "clusteredColumnChart", "bar": "clusteredBarChart", "line": "lineChart", "table": "tableEx", "slicer": "slicer"}[kind],

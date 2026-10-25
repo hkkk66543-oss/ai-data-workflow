@@ -6,12 +6,19 @@ No external executables, installers, custom visuals, or network requests.
 from copy import deepcopy
 import math
 import csv
+import re
 
 PALETTES = {
-    'ocean': {'accent':'#126DFF','secondary':'#00A896','ink':'#152841','muted':'#60748C','canvas':'#F2F5FA','surface':'#FFFFFF','edge':'#DCE5F0'},
-    'forest': {'accent':'#087F70','secondary':'#C67B27','ink':'#173C36','muted':'#61776F','canvas':'#F1F6F2','surface':'#FFFFFF','edge':'#D8E6DE'},
-    'plum': {'accent':'#7554C9','secondary':'#D47B49','ink':'#302944','muted':'#766C85','canvas':'#F5F3F9','surface':'#FFFFFF','edge':'#E2DCED'},
+    'ocean': {'accent':'#2563EB','secondary':'#B77916','ink':'#182B49','muted':'#5E6C84','canvas':'#E8EEF6','surface':'#FFFFFF','edge':'#D5DFED','tint':'#EAF1FF','secondary_tint':'#FFF3DF'},
+    'forest': {'accent':'#087F70','secondary':'#AC6720','ink':'#173C36','muted':'#526B61','canvas':'#E5EEE8','surface':'#FFFFFF','edge':'#CEDFD4','tint':'#E5F4ED','secondary_tint':'#FFF2DF'},
+    'plum': {'accent':'#7554C9','secondary':'#B96833','ink':'#302944','muted':'#6A5F7A','canvas':'#EBE6F3','surface':'#FFFFFF','edge':'#D8CFE6','tint':'#F0E9FC','secondary_tint':'#FFF0E4'},
 }
+
+
+def color(value):
+    if not isinstance(value,str) or not re.fullmatch(r'#[0-9A-Fa-f]{6}',value):
+        raise ValueError('设计颜色必须是 #RRGGBB。')
+    return value
 
 
 def prepare(spec, tables=None):
@@ -23,7 +30,11 @@ def prepare(spec, tables=None):
     palette_name = design.get('palette','ocean')
     if palette_name not in PALETTES:
         raise ValueError('design.palette 请选择 ocean、forest 或 plum。')
-    palette = PALETTES[palette_name]
+    palette = dict(PALETTES[palette_name],positive='#14857A',positive_tint='#E5F4F0',negative='#C34C42',negative_tint='#FBECE9')
+    overrides=design.get('colors',{})
+    if not isinstance(overrides,dict) or set(overrides)-set(palette):
+        raise ValueError('design.colors 包含未知颜色角色。')
+    palette.update({key:color(value) for key,value in overrides.items()})
     # Inspect actual exported distributions; these are hints, never new metrics.
     profiles = {}
     for name, table in (tables or {}).items():
@@ -46,6 +57,15 @@ def prepare(spec, tables=None):
             raise ValueError('不支持的页面布局。')
         source = page['visuals']
         for v in source:
+            if v['type']!='text':
+                role=v.get('role','primary')
+                roles={'primary':('accent','tint'),'secondary':('secondary','secondary_tint'),'positive':('positive','positive_tint'),'negative':('negative','negative_tint'),'neutral':('ink','surface')}
+                if not isinstance(role,str) or role not in roles:raise ValueError('不支持的组件颜色角色。')
+                ink,fill=roles[role]
+                v.setdefault('color',palette[ink])
+                v.setdefault('fill',palette[fill] if v['type']!='table' else palette['surface'])
+                color(v['color']);color(v['fill'])
+                if v['type']=='line':v.setdefault('show_labels',False)
             profile=profiles.get(v.get('table'),{}).get('columns',{}).get(v.get('column'),{})
             if layout=='auto' and v['type']=='column' and (profile.get('distinct_up_to_1001',0)>8 or profile.get('max_length',0)>12):
                 v['type']='bar'
@@ -95,9 +115,9 @@ def prepare(spec, tables=None):
             label(page.get('subtitle',design.get('subtitle','按业务问题组织页面 · 数据来自本次 SQL 校验结果')),[32,136,1320,40],14,palette['muted']),
             label(page.get('footer','来源：本次 SQL 导出 CSV · 点击筛选器查看联动 · 指标口径见报表说明'),[32,1016,1856,40],12,palette['muted']),
         ]
-        if cards:extras.append(label('01  /  核心指标',[32,176,1320,32],13,palette['muted'],True))
-        if charts:extras.append(label('02  /  '+('对比与结构' if layout=='comparison' else '分布与趋势'),[32,352 if cards else 176,1320,32],13,palette['muted'],True))
-        if tables and charts:extras.append(label('03  /  明细核查',[32,656,1320,32],13,palette['muted'],True))
+        if cards:extras.append(label('核心指标',[32,176,1320,32],13,palette['muted'],True))
+        if charts:extras.append(label('对比与结构' if layout=='comparison' else '分布与趋势',[32,352 if cards else 176,1320,32],13,palette['muted'],True))
+        if tables and charts:extras.append(label('明细核查',[32,656,1320,32],13,palette['muted'],True))
         page['visuals']=source+extras
         audit(page)
     return spec, palette
